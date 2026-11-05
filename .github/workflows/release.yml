@@ -62,4 +62,8 @@ jobs:
           sleep 15
           cargo publish -p tuvix-backend-crossterm --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
           sleep 15
+          cargo publish -p tuvix-backend-ansi --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
+          cargo publish -p tuvix-backend-termion --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
           cargo publish -p tuvix --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
