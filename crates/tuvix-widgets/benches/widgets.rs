@@ -390,6 +390,52 @@ fn bench_widgets_m9(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_widgets_m10(c: &mut Criterion) {
+    use tuvix_widgets::{TextArea, TextAreaState};
+
+    let mut group = c.benchmark_group("widgets");
+    group.throughput(Throughput::Elements(u64::from(WIDTH) * u64::from(HEIGHT)));
+    let area = Rect::new(0, 0, WIDTH, HEIGHT);
+
+    // The editor paint: a 60-line document fully visible at 200x60, the
+    // window synced per paint (the M6 input bench generalized to rows).
+    group.bench_function("text_area_60_rows_200x60", |b| {
+        let mut state = TextAreaState::new();
+        let lines: Vec<String> = (0..60)
+            .map(|row| format!("row {row:02}: the quick brown fox jumps over the lazy dog"))
+            .collect();
+        state.set_text(&lines.join("\n"));
+        state.move_doc_end();
+        let widget = TextArea::new();
+        b.iter(|| {
+            let mut buffer = Buffer::empty(area);
+            RenderWidget::render(
+                black_box(widget.clone()),
+                black_box(area),
+                &mut buffer,
+                &mut state,
+            );
+        });
+    });
+
+    // The editing hot path: 200 chars typed through `insert` (the
+    // coalescing undo machinery runs per keystroke).
+    group.bench_function("text_area_type_200_chars", |b| {
+        b.iter(|| {
+            let mut state = TextAreaState::new();
+            for ch in "the quick brown fox jumps over the lazy dog. "
+                .repeat(5)
+                .chars()
+            {
+                black_box(&mut state).insert(ch);
+            }
+            black_box(state.text())
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_widgets_bars,
@@ -398,6 +444,7 @@ criterion_group!(
     bench_widgets_m6,
     bench_widgets_m7,
     bench_widgets_m9,
+    bench_widgets_m10,
     bench_widget_suite
 );
 criterion_main!(benches);
