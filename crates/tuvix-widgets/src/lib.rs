@@ -25,6 +25,7 @@ pub mod scrollbar;
 pub mod sparkline;
 pub mod table;
 pub mod tabs;
+pub mod text_area;
 pub mod tree;
 
 pub use bar_chart::{Bar, BarChart, BarGroup};
@@ -45,4 +46,5 @@ pub use scrollbar::{Scrollbar, ScrollbarOrientation, ScrollbarState};
 pub use sparkline::Sparkline;
 pub use table::{Table, TableCell, TableRow, TableState};
 pub use tabs::Tabs;
+pub use text_area::{TextArea, TextAreaState};
 pub use tree::{Tree, TreeItem, TreeState};
