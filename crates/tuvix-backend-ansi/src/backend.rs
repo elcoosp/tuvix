@@ -19,6 +19,7 @@ use std::io::Write;
 
 use tuvix_core::backend::{Backend, ClearRegion};
 use tuvix_core::buffer::{Cell, DiffRun};
+use tuvix_core::clipboard::{ClipboardSelection, encode_osc52};
 use tuvix_core::geometry::{Position, Size};
 use tuvix_core::style::{Color, Hyperlink, Modifier};
 
@@ -368,6 +369,15 @@ impl<W: Write> Backend for AnsiBackend<W> {
         self.write(sequence)?;
         self.current_position = None;
         Ok(())
+    }
+
+    fn set_clipboard(&mut self, contents: &str) -> Result<(), Self::Error> {
+        // OSC 52 is a pure side effect: no terminal moves the cursor for
+        // it, so the memoized raster state (position and SGR) stays valid.
+        let sequence = encode_osc52(ClipboardSelection::System, contents).map_err(|error| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, error.to_string())
+        })?;
+        self.write(&sequence)
     }
 }
 
