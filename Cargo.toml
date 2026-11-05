@@ -5,12 +5,13 @@ members = [
     "crates/tuvix-backend-ansi",
     "crates/tuvix-backend-crossterm",
     "crates/tuvix-backend-termion",
+    "crates/tuvix-memgate",
     "crates/tuvix-widgets",
     "crates/tuvix",
 ]
 
 [workspace.package]
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -21,11 +22,11 @@ categories = ["command-line-interface"]
 
 [workspace.dependencies]
 # Internal crates
-tuvix-core = { path = "crates/tuvix-core", version = "0.10.0" }
-tuvix-widgets = { path = "crates/tuvix-widgets", version = "0.10.0" }
-tuvix-backend-ansi = { path = "crates/tuvix-backend-ansi", version = "0.10.0" }
-tuvix-backend-crossterm = { path = "crates/tuvix-backend-crossterm", version = "0.10.0" }
-tuvix-backend-termion = { path = "crates/tuvix-backend-termion", version = "0.10.0" }
+tuvix-core = { path = "crates/tuvix-core", version = "0.11.0" }
+tuvix-widgets = { path = "crates/tuvix-widgets", version = "0.11.0" }
+tuvix-backend-ansi = { path = "crates/tuvix-backend-ansi", version = "0.11.0" }
+tuvix-backend-crossterm = { path = "crates/tuvix-backend-crossterm", version = "0.11.0" }
+tuvix-backend-termion = { path = "crates/tuvix-backend-termion", version = "0.11.0" }
 # Runtime dependencies (latest stable on crates.io, verified 2026-11)
 bitflags = "2.13.2"
 crossterm = "0.29.0"
@@ -37,6 +38,9 @@ criterion = "0.8.2"
 pretty_assertions = "1.4.1"
 
 [workspace.lints.rust]
+# The one audited `unsafe` in the workspace lives in `tuvix-memgate`
+# (the B13 counting allocator), which deliberately does not inherit
+# these lints; its safety argument is documented there.
 unsafe_code = "forbid"
 missing_docs = "warn"
 missing_debug_implementations = "warn"
