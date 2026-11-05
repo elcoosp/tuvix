@@ -3,6 +3,10 @@
 //! Run with `cargo test -p tuvix-core --release --ignored`; results are
 //! recorded in docs/BENCHMARKS.md. Deterministic gates (B9) live in the
 //! backend crate where the ANSI encoder is available.
+//!
+//! The B13 memory gate measures through the counting global allocator
+//! of the `tuvix-memgate` dev-dependency (the workspace's one audited
+//! `unsafe`, with its safety argument documented in that crate).
 
 use std::cell::RefCell;
 use std::hint::black_box;
@@ -19,6 +23,21 @@ use tuvix_core::runtime::queue::event_channel;
 use tuvix_core::scheduler::{Scheduler, TickOutcome};
 use tuvix_core::style::{Color, Style};
 use tuvix_core::terminal::Terminal;
+
+use tuvix_memgate::CountingAlloc;
+
+/// The B13 memory gate measures through the pass-through counting
+/// allocator (see the `tuvix-memgate` crate for the safety argument).
+#[global_allocator]
+static GLOBAL_ALLOCATOR: CountingAlloc = CountingAlloc;
+
+/// The live-allocation delta across `f`, in bytes.
+fn measured_bytes<T>(f: impl FnOnce() -> T) -> (T, usize) {
+    let before = tuvix_memgate::allocated_bytes();
+    let value = f();
+    let after = tuvix_memgate::allocated_bytes();
+    (value, after.saturating_sub(before))
+}
 
 const WIDTH: u16 = 200;
 const HEIGHT: u16 = 60;
@@ -307,5 +326,144 @@ fn b11_scrub_latency_and_recording_overhead() {
     );
     println!(
         "B11 gate: recording overhead {per_frame:?} per frame @ {WIDTH}x{HEIGHT} (budget 50 us)"
+    );
+}
+
+#[test]
+#[ignore = "timing gate: run with `cargo test --release --ignored` and record in docs/BENCHMARKS.md"]
+fn b12_replay_throughput_and_golden_loop() {
+    // The architecture's replay promise (§5.8): a recorded session is a
+    // regression test. Two costs matter:
+    //
+    // 1. **Replay throughput** — 100 recorded 200x60 frames replayed
+    //    through a deterministic app (parse + paint + serialize + parse
+    //    per step) inside a generous budget.
+    // 2. **The golden property** — the replay of the recording is
+    //    byte-identical on every step, as a deterministic gate.
+    use tuvix_core::replay::{ReplayStep, SessionReplay};
+    use tuvix_core::session::SessionRecorder;
+
+    let paint = |buffer: &mut Buffer, mutation: usize| {
+        let header = format!("B12 replay gate mutation {mutation} — the quick brown fox");
+        buffer.set_string(0, 0, header.as_str(), Style::new());
+        for row in 1..HEIGHT {
+            let band = format!("row {row:02}: 0123456789 abcdefghijklmnopqrstuvwxyz {row}");
+            buffer.set_string(0, row, band.as_str(), Style::new());
+        }
+        scatter(buffer, 200 + mutation * 7);
+    };
+
+    // Record 100 dashboard frames through the real pipeline, every other
+    // one driven by an event.
+    let recorder = SessionRecorder::unbounded();
+    let mut terminal = Terminal::new(TestBackend::new(Size::new(WIDTH, HEIGHT))).unwrap();
+    terminal.set_preview(recorder.clone());
+    let mut mutations = 0usize;
+    for frame in 0..100 {
+        if frame % 2 == 0 {
+            recorder.record_event(Event::Key(KeyEvent::new(
+                KeyCode::Char('x'),
+                KeyModifiers::empty(),
+            )));
+            mutations += 1;
+        }
+        let mutation = mutations;
+        terminal
+            .draw(|frame| paint(frame.buffer, mutation))
+            .unwrap();
+    }
+    drop(terminal);
+
+    let replay = SessionReplay::from_recorder(&recorder);
+    assert_eq!(replay.frame_count(), 100);
+
+    let start = Instant::now();
+    let mut replayed_mutations = 0usize;
+    let report = replay
+        .run(|step: ReplayStep<'_>| {
+            for event in step.events {
+                if let Event::Key(key_event) = event
+                    && key_event.code == KeyCode::Char('x')
+                {
+                    replayed_mutations += 1;
+                }
+            }
+            paint(step.buffer, replayed_mutations);
+        })
+        .expect("recorded snapshots are canonical");
+    let elapsed = start.elapsed();
+
+    // The deterministic half of the gate: the replay is golden.
+    assert!(
+        report.is_golden(),
+        "B12 gate failed: the replay diverged at {:?}",
+        report.first_mismatch().map(ToString::to_string)
+    );
+    assert_eq!(report.steps(), 100);
+    assert_eq!(report.matched(), 100);
+    assert_eq!(replayed_mutations, 50);
+    assert_eq!(report.unverified_events(), 0);
+
+    // The timing half: 100 full-size steps (two parses, one serialize
+    // and one app paint each) inside 300 ms — a cold-path regression
+    // tool, not the render loop; the ceiling catches 2x+ regressions.
+    assert!(
+        elapsed <= Duration::from_millis(300),
+        "B12 gate failed: {elapsed:?} for 100 replayed frames @200x60 (budget 300 ms)"
+    );
+    println!(
+        "B12 gate: replay of 100 frames (50 events) @ {WIDTH}x{HEIGHT} in {elapsed:?} (budget 300 ms)"
+    );
+}
+
+#[test]
+#[ignore = "memory gate: run with `cargo test --release --ignored` and record in docs/BENCHMARKS.md"]
+fn b13_persistent_pipeline_memory_budget() {
+    // The architecture's last unmeasured budget row (§1): the persistent
+    // DOM surface stays under 10 MB. Measured at the 200x60 budget
+    // viewport: two 12,000-cell buffers, the frame journal bands, a
+    // SessionRecorder holding 60 full-screen snapshots and a HistorySink
+    // ring — the whole DevTools surface in one number.
+    use tuvix_core::preview::HistorySink;
+    use tuvix_core::session::SessionRecorder;
+
+    let history = HistorySink::unbounded();
+    let recorder = SessionRecorder::unbounded();
+
+    let build = || {
+        let mut terminal = Terminal::new_persistent(TestBackend::new(Size::new(WIDTH, HEIGHT)))
+            .expect("a test backend cannot fail");
+        terminal.set_preview(history.clone());
+        let _recorder_sink = recorder.clone();
+        for tick in 1..=60_u64 {
+            terminal
+                .draw(|frame| {
+                    let header = format!("B13 memory gate tick {tick} — the quick brown fox");
+                    frame.buffer.set_string(0, 0, header.as_str(), Style::new());
+                    for row in 1..HEIGHT {
+                        let band =
+                            format!("row {row:02}: 0123456789 abcdefghijklmnopqrstuvwxyz {row}");
+                        frame.buffer.set_string(0, row, band.as_str(), Style::new());
+                    }
+                    scatter(frame.buffer, usize::try_from(tick).unwrap_or(0) * 3 + 10);
+                })
+                .expect("a test backend cannot fail");
+        }
+        terminal
+    };
+
+    // Warm the allocator's caches once so the measured pass is steady.
+    let warm = build();
+    drop(warm);
+
+    let (terminal, delta) = measured_bytes(build);
+    drop(terminal);
+    let budget = 10 * 1024 * 1024;
+    assert!(
+        delta <= budget,
+        "B13 gate failed: {delta} B live after the persistent build (budget {budget} B)"
+    );
+    println!(
+        "B13 gate: persistent pipeline + 60 recorded frames @ {WIDTH}x{HEIGHT} = {delta} B live (budget {budget} B)"
     );
 }
