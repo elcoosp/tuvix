@@ -46,5 +46,9 @@ harness = false
 name = "journal"
 harness = false
 
+[[bench]]
+name = "markup"
+harness = false
+
 [lints]
 workspace = true
