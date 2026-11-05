@@ -87,8 +87,53 @@
 //! [`CancellationToken`](cancellation::CancellationToken) /
 //! [`DrawOutcome`](terminal::DrawOutcome) round out the primitives.
 //!
+//! # Time-travel DevTools: record, reconstruct, inspect (M9)
+//!
+//! The M9 kit turns recordings into first-class objects. A
+//! [`SessionRecorder`](session::SessionRecorder) captures a unified
+//! timeline of frames *and* input events; [`Screen`](screen::Screen)
+//! parses any recorded frame back into cells; [`FrameInspector`]
+//! overlays a historical moment on a live app:
+//!
+//! ```
+//! use tuvix::prelude::*;
+//!
+//! let mut terminal = Terminal::new(TestBackend::new(Size::new(10, 1))).unwrap();
+//! let session = SessionRecorder::unbounded();
+//! terminal.set_preview(session.clone());
+//!
+//! for tick in 0..3 {
+//!     let label = format!("tick {tick}");
+//!     terminal.draw(|frame| {
+//!         frame.buffer.set_string(0, 0, label.as_str(), Style::new());
+//!     }).unwrap();
+//! }
+//! session.record_event(Event::FocusGained);
+//!
+//! // Scrub: any frame reconstructs into a Buffer that diffs and
+//! // renders like a live one.
+//! let screen = Screen::from_ansi(&session.frame(0).unwrap().ansi).unwrap();
+//! assert_eq!(screen.to_buffer(Rect::new(0, 0, 10, 1)).to_string(), "tick 0    ");
+//!
+//! // Inspect: the historical frame as a picture-in-picture overlay,
+//! // with a timeline footer for the scrubber UI.
+//! let mut overlay = Buffer::empty(Rect::new(0, 0, 18, 4));
+//! FrameInspector::new(screen)
+//!     .timeline(0, 3)
+//!     .at(session.frame(0).unwrap().at)
+//!     .title("scrub")
+//!     .render(Rect::new(0, 0, 18, 4), &mut overlay);
+//! assert!(overlay.to_string().contains("tick 0"));
+//!
+//! // Golden sessions: export, replay, diff — an empty diff means the
+//! // same screen sequence.
+//! let golden = session.to_json();
+//! let imported = SessionRecorder::from_json(&golden).unwrap();
+//! assert!(session.diff(&imported).is_empty());
+//! ```
+//!
 //! See `docs/ARCHITECTURE.md` in the repository for the full design and
-//! `examples/hello.rs` / `examples/async_events.rs` for runnable apps.
+//! `examples/hello.rs` / `examples/devtools.rs` for runnable apps.
 
 pub use tuvix_backend_ansi as backend_ansi;
 pub use tuvix_backend_ansi::AnsiBackend;
@@ -104,13 +149,13 @@ pub use tuvix_core::{line, span, text};
 // brings the module and the macro namespaces in together.
 pub use tuvix_core::{
     backend, buffer, cancellation, damage, event, geometry, journal, layout, preview, scheduler,
-    style, stylize, terminal, theme, widget,
+    screen, session, style, stylize, terminal, theme, widget,
 };
 pub use tuvix_widgets::{
     Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Clear, Dataset,
-    Gauge, GraphType, Input, InputState, LineGauge, List, ListItem, ListState, Marker, Paragraph,
-    ScrollState, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline, Table, TableCell,
-    TableRow, TableState, Tabs, Tree, TreeItem, TreeState, Wrap, wrap_line,
+    FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem, ListState,
+    Marker, Paragraph, ScrollState, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline,
+    Table, TableCell, TableRow, TableState, Tabs, Tree, TreeItem, TreeState, Wrap, wrap_line,
 };
 
 pub mod runtime;
@@ -138,6 +183,11 @@ pub mod prelude {
     pub use tuvix_core::runtime::queue::{EventSender, EventStream, event_channel};
     pub use tuvix_core::runtime::runner::AppRunner;
     pub use tuvix_core::scheduler::{Scheduler, TickOutcome};
+    pub use tuvix_core::screen::{ParseError, ParseErrorKind, Screen};
+    pub use tuvix_core::session::{
+        Entry, FrameRecord, InputRecord, SessionDiff, SessionError, SessionErrorKind,
+        SessionRecorder,
+    };
     pub use tuvix_core::style::{Color, Hyperlink, Modifier, Style};
     pub use tuvix_core::stylize::Stylize;
     pub use tuvix_core::terminal::{DrawOutcome, Frame, Terminal};
@@ -147,8 +197,8 @@ pub mod prelude {
     pub use tuvix_core::{line, span, text};
     pub use tuvix_widgets::{
         Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Clear, Dataset,
-        Gauge, GraphType, Input, InputState, LineGauge, List, ListItem, ListState, Marker,
-        Paragraph, ScrollState, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline, Table,
-        TableCell, TableRow, TableState, Tabs, Tree, TreeItem, TreeState, Wrap, wrap_line,
+        FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem, ListState,
+        Marker, Paragraph, ScrollState, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline,
+        Table, TableCell, TableRow, TableState, Tabs, Tree, TreeItem, TreeState, Wrap, wrap_line,
     };
 }
