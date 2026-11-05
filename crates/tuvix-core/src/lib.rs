@@ -19,6 +19,7 @@ pub mod event;
 pub mod geometry;
 pub mod journal;
 pub mod layout;
+pub mod markup;
 pub mod preview;
 pub mod runtime;
 pub mod style;
