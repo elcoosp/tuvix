@@ -17,6 +17,7 @@ pub mod buffer;
 pub mod cancellation;
 pub mod clipboard;
 pub mod damage;
+pub mod embed;
 pub mod event;
 pub mod focus;
 pub mod geometry;
