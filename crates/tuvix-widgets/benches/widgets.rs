@@ -334,6 +334,62 @@ fn bench_widgets_m7(c: &mut Criterion) {
     group.finish();
 }
 
+/// M9: the DevTools surfaces.
+fn bench_widgets_m9(c: &mut Criterion) {
+    use tuvix_core::preview::HistorySink;
+    use tuvix_core::screen::Screen;
+    use tuvix_core::terminal::Terminal;
+    use tuvix_widgets::FrameInspector;
+
+    let mut group = c.benchmark_group("widgets");
+    group.throughput(Throughput::Elements(u64::from(WIDTH) * u64::from(HEIGHT)));
+    let area = Rect::new(0, 0, WIDTH, HEIGHT);
+
+    // A real recorded snapshot through the preview hook.
+    let mut terminal = Terminal::new(tuvix_core::backend::TestBackend::new(
+        tuvix_core::geometry::Size::new(WIDTH, HEIGHT),
+    ))
+    .unwrap();
+    let history = HistorySink::unbounded();
+    terminal.set_preview(history.clone());
+    terminal
+        .draw(|frame| {
+            frame.buffer.set_string(
+                0,
+                0,
+                "M9 inspector bench — the quick brown fox",
+                Style::new(),
+            );
+            for row in 1..HEIGHT {
+                let band = format!("row {row:02}: dashboard band {row}");
+                frame.buffer.set_string(0, row, band.as_str(), Style::new());
+            }
+        })
+        .unwrap();
+    let snapshot = history.latest().unwrap();
+    let screen = Screen::from_ansi(&snapshot).unwrap();
+
+    // The scrub view: paste the historical frame over a bordered box
+    // with the timeline footer.
+    group.bench_function("frame_inspector_200x60", |b| {
+        let inspector = FrameInspector::new(screen.clone())
+            .title("scrub")
+            .timeline(1, 3)
+            .border_style(Style::new().fg(Color::Cyan));
+        b.iter(|| {
+            let mut buffer = Buffer::empty(area);
+            Widget::render(black_box(inspector.clone()), black_box(area), &mut buffer);
+        });
+    });
+
+    // The screen reconstruction feeds it: parse cost of a full frame.
+    group.bench_function("screen_reconstruct_200x60", |b| {
+        b.iter(|| Screen::from_ansi(black_box(snapshot.as_str())).unwrap());
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_widgets_bars,
@@ -341,6 +397,7 @@ criterion_group!(
     bench_widgets_data,
     bench_widgets_m6,
     bench_widgets_m7,
+    bench_widgets_m9,
     bench_widget_suite
 );
 criterion_main!(benches);
