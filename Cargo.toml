@@ -1,0 +1,60 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/tuvix-core",
+    "crates/tuvix-backend-ansi",
+    "crates/tuvix-backend-crossterm",
+    "crates/tuvix-backend-termion",
+    "crates/tuvix-widgets",
+    "crates/tuvix",
+]
+
+[workspace.package]
+version = "0.7.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+authors = ["tuvix contributors"]
+repository = "https://github.com/tuvix-rs/tuvix"
+keywords = ["tui", "terminal", "ui", "cli"]
+categories = ["command-line-interface"]
+
+[workspace.dependencies]
+# Internal crates
+tuvix-core = { path = "crates/tuvix-core", version = "0.7.0" }
+tuvix-widgets = { path = "crates/tuvix-widgets", version = "0.7.0" }
+tuvix-backend-ansi = { path = "crates/tuvix-backend-ansi", version = "0.7.0" }
+tuvix-backend-crossterm = { path = "crates/tuvix-backend-crossterm", version = "0.7.0" }
+tuvix-backend-termion = { path = "crates/tuvix-backend-termion", version = "0.7.0" }
+# Runtime dependencies (latest stable on crates.io, verified 2026-11)
+bitflags = "2.13.2"
+crossterm = "0.29.0"
+termion = "4.0.6"
+unicode-segmentation = "1.13.3"
+unicode-width = "0.2.3"
+# Dev / bench dependencies (latest stable on crates.io, verified 2026-11)
+criterion = "0.8.2"
+pretty_assertions = "1.4.1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Terminal-grid math works in u16 with explicit bounds checks; allow the cast noise.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+# `Buffer`/`Style` module repetition is intentional for a framework facade.
+module_name_repetitions = "allow"
+# Builder-style APIs return `self` everywhere; `#[must_use]` noise hurts DX.
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+# `io::Result` is pervasive; error documentation lives on the trait contracts.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# ANSI/README terms inside rustdoc would require backticks everywhere.
+doc_markdown = "allow"
