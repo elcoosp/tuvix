@@ -14,6 +14,35 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M8 scorecard (2026-11)
+
+The M8 additions (`tuvix-core/benches/scheduler.rs` and the B10 gate in
+`tuvix-core/tests/bench_gates.rs`, criterion 0.8.2, release profile,
+200x60 budget viewport = 12,000 cells, same CI-class sandbox,
+Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `scheduler/s1_idle_tick_200x60` | a scheduler tick with no render request — the O(1) static-content decision (no probe call, no diff walk) | **~0.33 ns** | pass — the architecture's gate 6 budget (< 1% static CPU) realized as a sub-nanosecond decision |
+| `scheduler/s2_coalesced_10_requests_200x60` | ten `request_render` calls collapsing into one animated 20-band frame at 200x60 | **~201 us** | pass — coalescing is free; the cost is the frame itself (~11% of the 2 ms B2 budget) |
+| `scheduler/s3_yielded_tick_probe_true` | the priority decision: a pending render yielding to input (probe call + yield bookkeeping) | **~2.0 ns** | pass — preemption costs nothing; the abandoned paint is never started |
+| `scheduler/s4_cancelled_tick_pre_token` | a pending render abandoned by an already-cancelled token (zero terminal I/O) | **~5.1 ns** | pass |
+| `scheduler/s5_cancellation_checkpoint` | ten `is_cancelled()` stage-boundary checks (~2.1 ns each) | **~21 ns** | pass — the per-frame cancellation overhead is two atomic-load chain walks |
+
+The B10 gate (`§8` gate 5) runs the full loop: 10,000 keystrokes through
+the event channel, each drained by the scheduler and coalesced into one
+animated frame (a 20-row band repaints per keystroke, persistent DOM,
+200x60):
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B10 input-to-paint p99 over 10,000 keystrokes @200x60 | <= 8 ms | **~295-345 us** (max 1.0 ms) | pass — **23x headroom**; the M2 queue (~29 ns/event) and the M4 journal (banded diffs) leave the entire budget to the paint itself |
+
+M8 adds no cost to the classic draw paths: `draw()` and
+`draw_persistent()` delegate through the same body with a never-cancelled
+token, so all M0-M7 gates hold unchanged (B2 507 us, B5 21 ns, B6
+125 us, B8 journal 5 ns after the M8 changes, re-measured).
+
 ## M7 scorecard (2026-11)
 
 The M7 additions (`tuvix-core/benches/markup.rs` and
