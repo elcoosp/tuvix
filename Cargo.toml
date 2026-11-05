@@ -10,7 +10,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -21,11 +21,11 @@ categories = ["command-line-interface"]
 
 [workspace.dependencies]
 # Internal crates
-tuvix-core = { path = "crates/tuvix-core", version = "0.8.0" }
-tuvix-widgets = { path = "crates/tuvix-widgets", version = "0.8.0" }
-tuvix-backend-ansi = { path = "crates/tuvix-backend-ansi", version = "0.8.0" }
-tuvix-backend-crossterm = { path = "crates/tuvix-backend-crossterm", version = "0.8.0" }
-tuvix-backend-termion = { path = "crates/tuvix-backend-termion", version = "0.8.0" }
+tuvix-core = { path = "crates/tuvix-core", version = "0.9.0" }
+tuvix-widgets = { path = "crates/tuvix-widgets", version = "0.9.0" }
+tuvix-backend-ansi = { path = "crates/tuvix-backend-ansi", version = "0.9.0" }
+tuvix-backend-crossterm = { path = "crates/tuvix-backend-crossterm", version = "0.9.0" }
+tuvix-backend-termion = { path = "crates/tuvix-backend-termion", version = "0.9.0" }
 # Runtime dependencies (latest stable on crates.io, verified 2026-11)
 bitflags = "2.13.2"
 crossterm = "0.29.0"
