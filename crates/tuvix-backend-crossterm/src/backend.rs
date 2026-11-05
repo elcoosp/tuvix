@@ -27,6 +27,7 @@ use crossterm::style::{
 use crossterm::terminal::{Clear, ClearType};
 use tuvix_core::backend::{Backend, ClearRegion};
 use tuvix_core::buffer::{Cell, DiffRun};
+use tuvix_core::clipboard::{ClipboardSelection, encode_osc52};
 use tuvix_core::geometry::{Position, Size};
 use tuvix_core::style::{Color, Hyperlink, Modifier};
 
@@ -302,6 +303,15 @@ impl<W: Write> Backend for CrosstermBackend<W> {
         // defensively in case a terminal interpreted them differently.
         queue!(self.writer, Print(sequence))?;
         self.current_position = None;
+        Ok(())
+    }
+    fn set_clipboard(&mut self, contents: &str) -> Result<(), Self::Error> {
+        // The same raw OSC 52 sequence the ANSI backend writes; no
+        // terminal moves the cursor for it, so the memoized state holds.
+        let sequence = encode_osc52(ClipboardSelection::System, contents).map_err(|error| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, error.to_string())
+        })?;
+        queue!(self.writer, Print(sequence))?;
         Ok(())
     }
 }
