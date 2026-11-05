@@ -756,7 +756,7 @@ dependencies = [
 
 [[package]]
 name = "tuvix"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "crossterm",
  "tuvix-backend-ansi",
@@ -768,7 +768,7 @@ dependencies = [
 
 [[package]]
 name = "tuvix-backend-ansi"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "criterion",
  "pretty_assertions",
@@ -777,7 +777,7 @@ dependencies = [
 
 [[package]]
 name = "tuvix-backend-crossterm"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "criterion",
  "crossterm",
@@ -787,7 +787,7 @@ dependencies = [
 
 [[package]]
 name = "tuvix-backend-termion"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "criterion",
  "pretty_assertions",
@@ -798,7 +798,7 @@ dependencies = [
 
 [[package]]
 name = "tuvix-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "bitflags",
  "criterion",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "tuvix-widgets"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "bitflags",
  "criterion",
