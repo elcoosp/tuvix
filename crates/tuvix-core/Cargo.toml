@@ -1,0 +1,50 @@
+[package]
+name = "tuvix-core"
+description = "Zero-allocation double-buffered core of the tuvix terminal UI framework"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+bitflags.workspace = true
+unicode-segmentation.workspace = true
+unicode-width.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+pretty_assertions.workspace = true
+
+[lib]
+bench = false
+
+[[bench]]
+name = "buffer"
+harness = false
+
+[[bench]]
+name = "diff"
+harness = false
+
+[[bench]]
+name = "layout"
+harness = false
+
+[[bench]]
+name = "gates"
+harness = false
+
+[[bench]]
+name = "runtime"
+harness = false
+
+[[bench]]
+name = "journal"
+harness = false
+
+[lints]
+workspace = true
