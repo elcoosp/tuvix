@@ -14,6 +14,7 @@ pub mod block;
 pub mod canvas;
 pub mod chart;
 pub mod clear;
+pub mod frame_inspector;
 pub mod gauge;
 pub mod input;
 pub mod line_gauge;
@@ -33,6 +34,7 @@ pub use canvas::Canvas;
 // shadow `tuvix_core::text::Line` in the facade prelude.
 pub use chart::{Axis, Chart, Dataset, GraphType};
 pub use clear::Clear;
+pub use frame_inspector::FrameInspector;
 pub use gauge::Gauge;
 pub use input::{Input, InputState};
 pub use line_gauge::LineGauge;
