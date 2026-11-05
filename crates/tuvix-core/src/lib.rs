@@ -14,6 +14,7 @@
 
 pub mod backend;
 pub mod buffer;
+pub mod cancellation;
 pub mod damage;
 pub mod event;
 pub mod geometry;
@@ -22,6 +23,7 @@ pub mod layout;
 pub mod markup;
 pub mod preview;
 pub mod runtime;
+pub mod scheduler;
 pub mod style;
 pub mod stylize;
 pub mod terminal;
