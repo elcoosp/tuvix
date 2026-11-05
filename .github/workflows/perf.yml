@@ -1,0 +1,59 @@
+name: Perf gates
+
+# Benchmarks-as-CI-gate (M4): the timing gates are `#[ignore]`d tests with
+# generous ceilings (see docs/BENCHMARKS.md), so they are deterministic
+# enough for scheduled runs but too slow and too runner-sensitive for every
+# PR. Deterministic gates (byte-ratio B9, journal soundness, preview
+# behavior) already run in the normal CI test job.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Mondays 03:07 UTC (off the hour to dodge runner congestion).
+    - cron: "7 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+  timing-gates:
+    name: timing gates (release, ignored tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.9.3
+      # Every gate asserts its own ceiling and fails the run when breached;
+      # the ceilings are 4-13x the measured medians (see docs/BENCHMARKS.md).
+      - name: run all timing gates
+        run: cargo test --release --workspace --all-features -- --ignored --nocapture
+
+      # Criterion regression budgets: compile and smoke-run the criterion
+      # suites with the quick profile so a broken bench fails the workflow.
+      # Full measurement runs stay local (results land in docs/BENCHMARKS.md).
+      - name: compile benches
+        run: cargo bench --no-run --all-features
+
+      - name: record gate report
+        if: always()
+        run: |
+          cargo test --release --workspace --all-features -- --ignored --nocapture \
+            > perf-gates-report.txt 2>&1 || true
+          echo "## Perf gate report ($(date -u +%FT%TZ))" >> perf-gates-report.txt
+          echo "Runner: ubuntu-latest" >> perf-gates-report.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-gates-report
+          path: perf-gates-report.txt
