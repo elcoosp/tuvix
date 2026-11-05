@@ -21,7 +21,11 @@ viewport that clips any widget behind a scroll window (cached child
 paint, one invalidation per content change, ~166 us scroll steps), a
 `FocusRing` that routes the editing keys over your own pane enum, and a
 declarative `Keymap` with multi-key chords that resolves a keystroke in
-~8 ns — and the differentiator no incumbent ships: a
+~8 ns — an embedding boundary that lets a host process drive the screen
+through one flat, versioned `TVX` mutation packet per frame (strict
+byte-offset errors, all-or-nothing apply, snapshot read-back, a C ABI
+with its own audited-unsafe crate and a 9.3M-mutations/sec gate) — and
+the differentiator no incumbent ships: a
 cooperative frame scheduler where **input preempts render** (ticks
 coalesce render requests, a probe yields to waiting keystrokes, and
 abandoned passes are discarded, never committed), monotonic
@@ -41,7 +45,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-tuvix = "0.12"
+tuvix = "0.13"
 ```
 
 ```rust
@@ -94,6 +98,7 @@ cargo run -p tuvix --example inputs         # M6: tabs, text fields and a popup
 cargo run -p tuvix --example data_view      # M7: bar chart, tree and markup
 cargo run -p tuvix --example devtools       # M9: record, scrub, inspect, export
 cargo run -p tuvix --example interaction    # M11: scrollable log, focus ring, keymap chords
+cargo run -p tuvix --example embed          # M12: a host drives the screen through mutation packets
 ```
 
 ## Persistent DOM in three lines
@@ -113,8 +118,8 @@ terminal.draw_persistent(|_| {})?;  // no-op: no diff walk, no backend draw
 
 | | what you get |
 | --- | --- |
-| **Perf** | 16-byte inline-first cell glyphs (the diff walk is ~8.6 ns/cell, 4.9x faster than M0's `String` cells), run-batched diff, persistent raster state with CHA cursor economy and EL elision — a 1-row change serializes to **1.65%** of a full frame; the M2 event queue moves an event in **~29 ns** and a waker round trip in **~57 ns**; M3 paints a full 200x60 dashboard of gauge + list + table in **~150 us**; the **M4 frame journal** decides a no-op frame in **~4 ns** and repaints one ticker band for **~1.3 us** (the full diff walk costs 105 us there), the **M8 scheduler** decides an idle tick in **~0.3 ns**, coalesces render storms into one frame, and yields a pending render to waiting input in **~2 ns** — input-to-paint p99 is **~0.3 ms** against the 8 ms budget over 10,000 keystrokes @200x60; the **M9 DevTools** scrub any recorded 200x60 frame back into a renderable grid in **~130 us** (p99 195 us against a 2 ms gate) at a recording overhead of **~1.5 us/frame**, `#![forbid(unsafe_code)]` |
-| **DX** | `tuvix::try_init()` → runner with restore-on-drop, `"hello".red().bold()` styling sugar over zero-copy literal spans, `Layout::vertical([...]).areas(&area)` with a memoized split cache and the **M6 `Flex` placement policies** (Start/End/Center/SpaceBetween/SpaceAround/SpaceEvenly), `Paragraph` word wrapping + scroll state, the **M3 widget family** (Gauge, Sparkline, List, Table, Scrollbar, Chart, Canvas) behind one unified `RenderWidget` contract for stateful widgets, the **M4 theme system** (`Theme::dark()/light()/monochrome()`, `NO_COLOR` honored, one `.theme(&theme)` builder per widget), **M4 IPC previews** (watch a live app from `telnet 127.0.0.1 4223`), the **M6 interaction kit**: `Tabs`, `LineGauge`, the `Input` text field (char cursor, word motions, column-exact scroll window, `cursor_position` for the terminal cursor), and the popup pattern (`Rect::centered` + `Clear`), the **M7 data kit**: `BarChart` (grouped bars, values + labels, theme-aware), `Tree` (path-based selection + fold state) and the inline markup parser (`parse_line` with strict, byte-offset errors) plus `span!`/`line!`/`text!` macro sugar — the **M8 responsiveness kit**: the `Scheduler` loop (input-priority ticks, render coalescing, `tick_cancellable`), monotonic `CancellationToken`s, and the `HistorySink` time-travel ring — and the **M9 time-travel DevTools**: the `SessionRecorder` timeline (frames + input events), `Screen` snapshot reconstruction, the `FrameInspector` scrub overlay, and golden-session JSON export/import with a one-line `diff` regression gate — and the **M11 interaction kit**: the `Scrollable` viewport (any widget behind a scroll window with an optional attached scrollbar and mouse-wheel mapping), the `FocusRing` focus router, and the `Keymap` binding trie (`g g` chords included), a `prelude`, every doc example is a doctest |
+| **Perf** | 16-byte inline-first cell glyphs (the diff walk is ~8.6 ns/cell, 4.9x faster than M0's `String` cells), run-batched diff, persistent raster state with CHA cursor economy and EL elision — a 1-row change serializes to **1.65%** of a full frame; the M2 event queue moves an event in **~29 ns** and a waker round trip in **~57 ns**; M3 paints a full 200x60 dashboard of gauge + list + table in **~150 us**; the **M4 frame journal** decides a no-op frame in **~4 ns** and repaints one ticker band for **~1.3 us** (the full diff walk costs 105 us there), the **M8 scheduler** decides an idle tick in **~0.3 ns**, coalesces render storms into one frame, and yields a pending render to waiting input in **~2 ns** — input-to-paint p99 is **~0.3 ms** against the 8 ms budget over 10,000 keystrokes @200x60; the **M9 DevTools** scrub any recorded 200x60 frame back into a renderable grid in **~130 us** (p99 195 us against a 2 ms gate) at a recording overhead of **~1.5 us/frame**, the **M12 embedding boundary** applies a 10,000-mutation packet through the C ABI at **~9.3M mutations/sec** — 185x the architecture's FFI budget — `#![forbid(unsafe_code)]` (two audited exceptions, each with a documented safety argument) |
+| **DX** | `tuvix::try_init()` → runner with restore-on-drop, `"hello".red().bold()` styling sugar over zero-copy literal spans, `Layout::vertical([...]).areas(&area)` with a memoized split cache and the **M6 `Flex` placement policies** (Start/End/Center/SpaceBetween/SpaceAround/SpaceEvenly), `Paragraph` word wrapping + scroll state, the **M3 widget family** (Gauge, Sparkline, List, Table, Scrollbar, Chart, Canvas) behind one unified `RenderWidget` contract for stateful widgets, the **M4 theme system** (`Theme::dark()/light()/monochrome()`, `NO_COLOR` honored, one `.theme(&theme)` builder per widget), **M4 IPC previews** (watch a live app from `telnet 127.0.0.1 4223`), the **M6 interaction kit**: `Tabs`, `LineGauge`, the `Input` text field (char cursor, word motions, column-exact scroll window, `cursor_position` for the terminal cursor), and the popup pattern (`Rect::centered` + `Clear`), the **M7 data kit**: `BarChart` (grouped bars, values + labels, theme-aware), `Tree` (path-based selection + fold state) and the inline markup parser (`parse_line` with strict, byte-offset errors) plus `span!`/`line!`/`text!` macro sugar — the **M8 responsiveness kit**: the `Scheduler` loop (input-priority ticks, render coalescing, `tick_cancellable`), monotonic `CancellationToken`s, and the `HistorySink` time-travel ring — and the **M9 time-travel DevTools**: the `SessionRecorder` timeline (frames + input events), `Screen` snapshot reconstruction, the `FrameInspector` scrub overlay, and golden-session JSON export/import with a one-line `diff` regression gate — and the **M11 interaction kit**: the `Scrollable` viewport (any widget behind a scroll window with an optional attached scrollbar and mouse-wheel mapping), the `FocusRing` focus router, and the `Keymap` binding trie (`g g` chords included) — and the **M12 embedding kit**: the `Mutation`/`PacketWriter`/`MutationReader` packet protocol with strict byte-offset errors, the snapshot read-back, and `tuvix-ffi`'s C ABI for hosts that cannot speak Rust, a `prelude`, every doc example is a doctest |
 | **Correctness** | 1,100+ tests: the **M11 interaction gates** (a scroll session renders byte-identically to a direct jump, the child paint is a cache — invalidated frames repaint, scroll frames blit, a resize repaints — wide-glyph pairs are never split by a window edge, the keymap's prefix-shadowing and subset-modifier semantics are pinned, and chords survive release events), the **M9 DevTools gates** (recorded frames reconstruct byte-identically through the real pipeline, the round trip `from_ansi(serialize_ansi(buf))` is a differential gate over styled/hyperlinked/wide content, session documents round-trip exactly across the full event vocabulary, golden sessions diff clean and regressions name the frame), the **M8 differential gates** (interrupted sequences end byte-identical to uninterrupted ones, immediate and persistent; persistent histories byte-identical to immediate ones frame-for-frame), a 500-step randomized diff-soundness property test, a wide-character corpus (ZWJ emoji, VS16, skin tones, flags, CJK, halfwidth dakuten) where incremental renders must be byte-identical to full rebuilds, an input-mode stack whose escape sequences are pinned byte-wise against crossterm 0.29's own encoder, a restore-on-drop gate proven under a real panic unwind, per-widget rendering contracts pinned by buffer-level assertions, and the **M4 gates**: banded diff == full diff, persistent visible == logical DOM over 600 randomized steps with mid-stream resizes, full-repaint parity between modes, no-op frames proven absent from the backend op log, and every theme slot mapping pinned |
 | **Tooling** | clippy::pedantic deny-warned, rustdoc deny-warned, MSRV 1.88 job, 3-OS test matrix (benches compiled natively on Windows too), bench compilation + a deterministic byte-ratio gate in CI, the **M4 scheduled perf-gate workflow** (budgets enforced weekly), Dependabot, git-cliff changelogs, a documented platform support matrix |
 
@@ -123,11 +128,12 @@ terminal.draw_persistent(|_| {})?;  // no-op: no diff walk, no backend draw
 | Crate | Contents |
 | --- | --- |
 | [`tuvix`](crates/tuvix) | facade — flat re-exports + `prelude` + `try_init`/`restore_global` + preview re-exports |
-| [`tuvix-core`](crates/tuvix-core) | geometry, style + stylize, zero-copy text, compact `Symbol` cells + diff engine with EL elision, cached layout, row-band damage, events, backend contract, Terminal, TestBackend, **runtime**: input stack, async event queue, panic restore, app runner; **M4**: persistent-DOM frame journal, theme system, IPC previews; **M7**: markup parser + macros; **M8**: the scheduler (input-priority ticks, render coalescing), cancellation tokens, the frame history ring; **M9**: the `SessionRecorder` timeline, `Screen` snapshot reconstruction, the session JSON document + golden diff; **M11**: the `Keymap` binding trie and the `FocusRing` focus router |
+| [`tuvix-core`](crates/tuvix-core) | geometry, style + stylize, zero-copy text, compact `Symbol` cells + diff engine with EL elision, cached layout, row-band damage, events, backend contract, Terminal, TestBackend, **runtime**: input stack, async event queue, panic restore, app runner; **M4**: persistent-DOM frame journal, theme system, IPC previews; **M7**: markup parser + macros; **M8**: the scheduler (input-priority ticks, render coalescing), cancellation tokens, the frame history ring; **M9**: the `SessionRecorder` timeline, `Screen` snapshot reconstruction, the session JSON document + golden diff; **M11**: the `Keymap` binding trie and the `FocusRing` focus router; **M12**: the `embed` mutation-packet protocol (strict parser, applier, snapshot encoder/decoder) |
 | [`tuvix-widgets`](crates/tuvix-widgets) | Block, Paragraph with word wrapping + scroll state, **M3 family**: Gauge, Sparkline, List, Table, Scrollbar, Chart, Canvas (braille grid), **M6**: Clear, Tabs, LineGauge, Input + InputState, **M7**: BarChart + Bar/BarGroup, Tree + TreeItem/TreeState, **M9**: `FrameInspector` (the picture-in-picture scrub view with a timeline footer), **M11**: `Scrollable` + `ViewportState` (the clip-any-widget scroll viewport) — unified behind the `RenderWidget` contract, every family themable via `.theme(&Theme)` |
 | [`tuvix-backend-crossterm`](crates/tuvix-backend-crossterm) | ANSI renderer with persistent raster state, cursor economy, EL elision, lossless event bridge + background event reader |
 | [`tuvix-backend-ansi`](crates/tuvix-backend-ansi) | **M5** — the dependency-free ANSI renderer: the full persistent raster-state machine straight to any `Write` target |
 | [`tuvix-backend-termion`](crates/tuvix-backend-termion) | **M5** — unix platform backend over termion 4: raw mode, live size queries, event reader |
+| [`tuvix-ffi`](crates/tuvix-ffi) | **M12** — the C ABI embedding boundary: apply packets, resize, snapshot and ANSI read-back over an opaque handle; `tuvix.h` ships with the crate |
 
 Full design and the competitor-analysis grounding live in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); benchmark baselines in
@@ -153,15 +159,17 @@ Latest stable of everything, as required by the project's dependency policy:
 | orhun/git-cliff-action | v4 (git-cliff 2.14.2) |
 | softprops/action-gh-release | v3 |
 
-M2 through M9 added **zero new dependencies** — the runtime,
+M2 through M12 added **zero new dependencies** — the runtime,
 every M3 widget, the M4 frame journal, the theme system, the IPC
 previews, the M6 Flex pass, the M6 widgets, the M7 data kit, the M8
-scheduler (cancellation, ticks, history) and the M9 DevTools (timeline,
-snapshot parser, session JSON, inspector) are std-only (M3 reuses
-`unicode-width` for label layout and the core layout solver for table
-columns; M4's preview tap is a broadcast thread over `std::net` /
-`std::os::unix::net`; M6's `Input` reuses `unicode-width` for cursor
-column math).
+scheduler (cancellation, ticks, history), the M9 DevTools (timeline,
+snapshot parser, session JSON, inspector) and the M12 embedding
+boundary (packet protocol, applier, snapshot codec, C ABI) are
+std-only (M3 reuses `unicode-width` for label layout and the core
+layout solver for table columns; M4's preview tap is a broadcast
+thread over `std::net` / `std::os::unix::net`; M6's `Input` reuses
+`unicode-width` for cursor column math; the M12 packet format is
+little-endian primitives over slices).
 
 ## MSRV
 
