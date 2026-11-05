@@ -1,0 +1,31 @@
+[package]
+name = "tuvix-widgets"
+description = "Batteries-included widgets for the tuvix terminal UI framework"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+bitflags.workspace = true
+tuvix-core.workspace = true
+unicode-segmentation.workspace = true
+unicode-width.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+pretty_assertions.workspace = true
+
+[lib]
+bench = false
+
+[[bench]]
+name = "widgets"
+harness = false
+
+[lints]
+workspace = true
