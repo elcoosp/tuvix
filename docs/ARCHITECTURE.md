@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M11 implemented and green. Every design decision
+> Status: M0 through M12 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -34,6 +34,13 @@
 > the golden loop that replays a recorded session through a deterministic
 > app and names the diverging frame — the write-only OSC 52 clipboard,
 > and the B13 memory gate that closes the architecture's budget table.
+> M11 ships the interaction depth: the `Scrollable` viewport over larger
+> content, the `FocusRing` focus router and the `Keymap` declarative
+> binding trie. M12 ships the embedding boundary — the last crate of the
+> §7 layout: the flat, versioned `TVX` mutation packet (§5.1's batching
+> mechanism), the applier and the outbound frame snapshot, and the
+> `tuvix-ffi` C ABI whose B15 gate measures the §8 budget table's one
+> never-measured row: FFI mutation throughput.
 
 ---
 
@@ -407,6 +414,7 @@ pub trait Backend {
 | **M9 — Time-travel DevTools** | the `SessionRecorder` timeline (frames + input events on one clock, bounded ring that evicts adjacent input with the oldest frame so replays start from a frame), `Screen` — a strict parser for the canonical ANSI snapshot with byte-offset errors, reconstructing live `Buffer`s that diff and render like the real thing, `FrameInspector` (picture-in-picture scrub view with the dot-bar timeline footer), the session JSON document (zero-dep writer, strict minimal parser, full `Event` vocabulary) and `SessionRecorder::diff` as the golden-session gate; devtools + inspector benches, the B11 scrub-latency gate; snapshot-encoder repairs the parser exposed (mid-row cursor re-addressing for interior blanks, correct `58;5;n` named underline colors in both ANSI encoders) | **done** |
 | **M10 — Applications: editing, replay & clipboard** | `TextArea` — the multi-line editor (char-indexed cursor, goal column, column-exact window sync, bounded op-based undo/redo with coalescing groups), `SessionReplay` — the golden loop replaying a recorded session through a deterministic app with the seed checkpoint for bounded rings and frame-precise divergence reports, the write-only OSC 52 clipboard (`Backend::set_clipboard`, in-house RFC 4648, 64 KiB cap, raster-state neutral), the B12 replay gate and the B13 memory gate closing the §1 budget table | **done** |
 | **M11 — Interaction depth** | `Scrollable` — the viewport widget (any `RenderWidget` behind a scroll window: cached child paint in the state, explicit invalidation, offset clamping, wide-glyph clip/snap honesty, optional attached `Scrollbar`, mouse-wheel mapping), `FocusRing` — focus routing as a type over the app's own pane enum (wrap-around advance/retreat, lookup by value or index, explicit unfocus), `Keymap` — the declarative binding trie (single keys and multi-key chords, subset modifier semantics, press-only matching, `Pending`/`Matched`/`Miss` outcomes), the B14 viewport-scroll gate; the `interaction` benches and the `interaction` example | **done** |
+| **M12 — The embedding boundary** | the flat, versioned `TVX` mutation packet (`Mutation`, `PacketWriter`, strict streaming `MutationReader` with byte-offset errors), `Mutation::apply` with the `Buffer`'s exact clip semantics, the outbound frame snapshot (`encode_snapshot`/`decode_snapshot`, `decode(encode(buf)) == buf` differential gate), `tuvix-ffi` — the C ABI (audited unsafe, `tuvix.h` shipped, capacity negotiation, pinned result codes) closing the §7 crate layout, the B15 FFI-throughput gate closing the §8 budget table; the `embed` benches and the `embed` example | **done** |
 
 ## 12. Decision log
 
@@ -957,3 +965,52 @@ pub trait Backend {
   ring a `Vec` and an index, the viewport a second `Buffer`. The M5
   framing argument still holds: the fewer bytes that cross the trust
   boundary, the fewer the escape hatches to audit.
+
+## 19. M12 decisions (2026-11)
+
+- **The packet is the batching unit, not the mutation.** §5.1's mechanism
+  is a *packet*: one boundary crossing carries a batch, one strict parse
+  validates all of it, and apply is all-or-nothing — a rejected packet
+  leaves the buffer untouched (the differential tests pin it), which is
+  what makes error reporting useful: the host learns the offending byte
+  offset without half a batch having landed. `MutationReader::next`
+  streams for hosts that want incremental consumption; `parse_packets`
+  is the collect-everything convenience; both enforce the same grammar.
+- **The parser is strict because the boundary is a trust boundary.** The
+  M9 `Screen` philosophy applied to bytes: bad magic, unknown version,
+  unknown op, unknown color byte, invalid UTF-8, C0/DEL in text and URIs,
+  non-ASCII fill symbols, reserved style bits set and trailing bytes all
+  fail with a byte offset — a protocol consumer gets an error, never
+  silently different content. The M5 framing argument carries over: no
+  byte that crosses the boundary can later break an escape sequence, so
+  text, URIs and fill symbols are constrained to what the renderers can
+  echo verbatim.
+- **Ops clip like the `Buffer` methods they name.** `Mutation::apply` is
+  a thin mapping onto `set_string`/`set_style`/`clear`/`resize` and the
+  hyperlink writer, sharing their exact edge semantics (an op that lands
+  partly outside paints the part that lands inside; wide glyphs are never
+  split). An empty hyperlink URI clears its region — the M10 clipboard's
+  "empty means clear" convention, kept consistent across the boundary.
+- **The snapshot is the outbound half, not a second format family.** The
+  same `TVX` envelope at version 2: empty rows cost one byte, content
+  cells list symbol, style, hyperlink and the covered-half flag. The
+  differential gate is the strongest form of documentation:
+  `decode(encode(buffer)) == buffer`, wide pairs and links included, and
+  the decoded buffer diffs and renders through the real pipeline (the M9
+  Screen discipline, one layer down).
+- **The C ABI is the audited-unsafe exception, scoped like the
+  allocator.** tuvix-ffi does not inherit the workspace lints so
+  `unsafe_code` is allowed exactly there: thin `extern "C"` wrappers with
+  null-checked inputs, safe `tuvix-core` calls inside, one `Box` per
+  handle, capacity negotiation on every output function (write at most
+  `cap` bytes, or return `-needed`), pinned result and error-kind codes
+  mirrored in `tuvix.h`, and the ownership/threading contract documented
+  at the boundary the way a C library documents it. Panics never cross:
+  the strict parser reports errors, and allocation failure aborts rather
+  than unwinding into C.
+- **B15 closes the budget table.** §8 gate 1 — more than 50,000 FFI
+  mutations per second — was the one row with no measurement. The gate
+  applies a 10,000-mutation packet twenty times through the raw C ABI and
+  asserts the budget; the measured 9.3M mutations/sec (108 ns per
+  mutation, parse included) leaves 185x headroom, and the batching is
+  the point: the per-call overhead amortizes to noise at batch size.
