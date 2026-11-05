@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M9 implemented and green. Every design decision
+> Status: M0 through M10 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -27,7 +27,13 @@
 > input-priority ticks and render coalescing, cancellable frames whose
 > abandoned work is discarded rather than committed, and the frame
 > history sink that records every flushed screen for time-travel
-> scrubbing.
+> scrubbing. M9 shipped the DevTools sidecar: the session recorder, the
+> `Screen` snapshot parser, the `FrameInspector` scrub view and the
+> versioned session JSON document. M10 ships the application layer: the
+> `TextArea` multi-line editor with exact undo/redo, `SessionReplay` —
+> the golden loop that replays a recorded session through a deterministic
+> app and names the diverging frame — the write-only OSC 52 clipboard,
+> and the B13 memory gate that closes the architecture's budget table.
 
 ---
 
@@ -355,13 +361,22 @@ pub trait Backend {
   `input_80_chars_200x1`). M7 adds the markup parser bench
   (`markup/parse_line_122b_dashboard_header` + a plain-text twin in
   `tuvix-core/benches/markup.rs`) and paint benches for the new widgets
-  (`bar_chart_2_groups_200x60`, `tree_256_nodes_200x60`).
+  (`bar_chart_2_groups_200x60`, `tree_256_nodes_200x60`). M10 adds the
+  replay benches (`replay/r1_replay_100_frames_200x60`,
+  `r2_seed_reconstruct_200x60`), the editor benches
+  (`text_area_60_rows_200x60`, `text_area_type_200_chars`), the B12
+  replay gate (100 recorded frames, golden + 300 ms) and the B13 memory
+  gate (§1's last unmeasured row) measured through the `tuvix-memgate`
+  counting allocator.
 - M1 measured the fix: the 16-byte `Symbol` (14-byte inline tier, thin-box
   heap tier, double-box fallback) cut the walk from ~42 to ~8.6 ns/cell
   (80 us -> 15.8 us for the 1920-cell screen). Cell shrank 48 -> 40 bytes.
   Gate measurements and targets live in `docs/BENCHMARKS.md`.
 - `unsafe_code = "forbid"` workspace-wide; any future unsafe (SIMD text
   measurement, packed cells) must land behind a documented safety argument.
+  The one exception is `tuvix-memgate`, the dev-only B13 counting
+  allocator: a verbatim delegation to the system allocator, the
+  workspace's single audited `unsafe`, documented in that crate.
 
 ## 10. Release engineering
 
@@ -390,6 +405,7 @@ pub trait Backend {
 | **M7 — Data & declarative text** | grouped vertical `BarChart` (bar/value/group labels, style layering, trailing-edge dropping), collapsible `Tree` with path-based selection + fold state, inline markup parser with strict errors + `span!`/`line!`/`text!` macros; data_view example, markup + widget benches, ci.yml push-filter repair, release publish-order repair | **done** |
 | **M8 — Responsiveness & time-travel** | cooperative `CancellationToken` (monotonic, parent-child), `Terminal::draw_cancellable` / `draw_persistent_cancellable` with stage-boundary checkpoints and discard-not-commit semantics, the `Scheduler` (input-priority ticks, render coalescing, O(1) idle decision), the `HistorySink` time-travel ring over the M4 preview hook; scheduler benches + the B10 input-to-paint gate | **done** |
 | **M9 — Time-travel DevTools** | the `SessionRecorder` timeline (frames + input events on one clock, bounded ring that evicts adjacent input with the oldest frame so replays start from a frame), `Screen` — a strict parser for the canonical ANSI snapshot with byte-offset errors, reconstructing live `Buffer`s that diff and render like the real thing, `FrameInspector` (picture-in-picture scrub view with the dot-bar timeline footer), the session JSON document (zero-dep writer, strict minimal parser, full `Event` vocabulary) and `SessionRecorder::diff` as the golden-session gate; devtools + inspector benches, the B11 scrub-latency gate; snapshot-encoder repairs the parser exposed (mid-row cursor re-addressing for interior blanks, correct `58;5;n` named underline colors in both ANSI encoders) | **done** |
+| **M10 — Applications: editing, replay & clipboard** | `TextArea` — the multi-line editor (char-indexed cursor, goal column, column-exact window sync, bounded op-based undo/redo with coalescing groups), `SessionReplay` — the golden loop replaying a recorded session through a deterministic app with the seed checkpoint for bounded rings and frame-precise divergence reports, the write-only OSC 52 clipboard (`Backend::set_clipboard`, in-house RFC 4648, 64 KiB cap, raster-state neutral), the B12 replay gate and the B13 memory gate closing the §1 budget table | **done** |
 
 ## 12. Decision log
 
@@ -839,3 +855,58 @@ pub trait Backend {
   `SessionRecorder::diff` compares frames by absolute number and events by
   position, so a regression names the frame that changed — CI prints the
   culprit instead of a wall of bytes.
+
+## 17. M10 decisions (2026-11)
+
+- **The editing model is the M6 `Input` contract, generalized, not
+  reinvented.** The cursor stays char-indexed (it can never split a
+  grapheme) while the horizontal window syncs on display columns — the
+  M6 decisions hold per row, with one addition: vertical motion keeps a
+  *goal column* (the display column is restored on the next longer row
+  until a horizontal motion or an edit resets it), because without it
+  moving through short lines destroys the column the user aimed at.
+- **Undo is operation-based with coalescing groups, not snapshots.** A
+  snapshot stack is O(document) per keystroke and dishonest about the
+  10 MB budget; ops (`Insert`/`Delete`/`Join`/`Split`/`EraseLine`) are
+  exact inverses. Typing runs coalesce into one step (a word undoes as
+  a word) by adjacency checks, and undo/redo *open a new group* so a
+  fresh edit never merges into older history. The stacks are bounded
+  (128 default, configurable, 0 disables); bulk replaces (`set_text`,
+  `clear`) reset the history and say so — a destructive replace is not
+  an edit step. Two randomized gates prove undo-all is the identity,
+  over the plain alphabet and over the wide corpus (multi-line pastes,
+  wide glyphs, flags).
+- **Replay compares screen content, not canvas bytes.** A canonical
+  snapshot does not encode the viewport (a blank tail is one `ESC[K`),
+  so the step buffer is sized to the *discovered* grid and golden is
+  decided on the union grid — a replay painting identical content onto
+  a larger canvas replays golden, because replay verifies what the user
+  saw. The alternative (threading the terminal size through the session
+  format) would version the M9 document for no testing value.
+- **Bounded rings replay from a seed checkpoint.** The first retained
+  frame's events were evicted with the frames they produced, so a
+  window cannot replay from events alone; `ReplayStep::seed` marks the
+  checkpoint step and `SessionReplay::seed_buffer` hands over the
+  parsed content — the FrameInspector "resume from here" flow, made a
+  type. Events recorded after the last frame produced no screen and are
+  reported (`unverified_events`), never delivered: a replay cannot
+  verify what no one saw.
+- **The clipboard is write-only, by decision.** OSC 52 readback is the
+  variant terminals gate behind prompts and the reason many disable the
+  escape; tuvix builds no API whose honest behavior is "silently
+  returns nothing". The payload is base64 with an in-house RFC 4648
+  encoder (pinned against the RFC vectors) — escape-free by
+  construction, the M5 hyperlink framing argument again — and caps at
+  64 KiB so tuvix never builds a sequence no terminal accepts. Empty
+  contents are the clear convention. The write is raster-state neutral
+  (no terminal moves the cursor for OSC 52), which the differential
+  test pins.
+- **The memory budget is measured, not asserted.** The §1 table's last
+  row (< 10 MB overhead) was the only one without a gate; B13 measures
+  the live bytes of a full persistent-pipeline build (buffers, journal,
+  60 recorded snapshots, preview sink) through a counting allocator:
+  ~2.3 MB, 4.4x headroom. The allocator is a dev-only `publish = false`
+  member (`tuvix-memgate`) whose whole surface is one `unsafe impl
+  GlobalAlloc` delegating verbatim to the system allocator — the
+  workspace `forbid` stands everywhere else, and the safety argument
+  lives with the code.
