@@ -1,0 +1,25 @@
+[package]
+name = "tuvix-backend-termion"
+description = "Termion backend for the tuvix terminal UI framework (unix)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tuvix-backend-ansi.workspace = true
+tuvix-core.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+termion.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+pretty_assertions.workspace = true
+
+[lints]
+workspace = true
