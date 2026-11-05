@@ -23,6 +23,7 @@ emulators accept, not of separate code paths.
 | Panic-restore lifecycle | ✅ | ✅ | ✅ | hook + drop halves are idempotent and platform-free |
 | OSC 52 clipboard (`set_clipboard`) | ✅* | ✅* | ✅* | the sequence is pure output on every platform; honored where the terminal supports OSC 52 (kitty, Windows Terminal, tmux with `set-clipboard`), ignored elsewhere — the request is fire-and-forget by contract |
 | B13 memory gate (`tuvix-memgate` counting allocator) | ✅ | ✅ | ✅ | dev-only, `publish = false`; the workspace's one audited `unsafe` with a documented safety argument |
+| C ABI embedding boundary (`tuvix-ffi`, M12) | ✅ | ✅ | ✅ | pure output/input over raw pointers — no terminal, no I/O; `cdylib`/`staticlib` build on every platform, `tuvix.h` ships with the crate; the workspace's second audited `unsafe` (the ABI wrappers), same documented-argument discipline |
 
 ✅* = works where the terminal supports the sequence; degrades gracefully
 where it does not (the input-mode stack only ever disables what it pushed).
