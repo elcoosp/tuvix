@@ -10,8 +10,9 @@ your terminal on panic, a persistent-DOM frame journal that turns no-op
 frames into a ~4 ns decision, a theme system, IPC frame previews, OSC 8
 hyperlinks on cells, terminal-weighted layout constraints, structured JSON
 frame export, and backends beyond crossterm — a zero-dependency ANSI
-renderer and a termion (unix) backend — plus tooling that is green from
-day one: pedantic clippy, TDD-tested contracts, benchmark gates with
+renderer and a termion (unix) backend — a grouped `BarChart`, a
+collapsible `Tree`, and an inline markup parser with `span!`/`line!`/
+`text!` macro sugar, plus tooling that is green from day one: pedantic clippy, TDD-tested contracts, benchmark gates with
 budgets enforced in CI, latest-generation GitHub Actions CI, and
 git-cliff-powered releases.
 
@@ -25,7 +26,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-tuvix = "0.6"
+tuvix = "0.8"
 ```
 
 ```rust
@@ -75,6 +76,7 @@ cargo run -p tuvix --example preview        # M4: watch the app from another ter
 cargo run -p tuvix --example simple_backend # M5: the zero-dependency ANSI renderer
 cargo run -p tuvix --example termion_hello  # M5: the termion backend (unix)
 cargo run -p tuvix --example inputs         # M6: tabs, text fields and a popup
+cargo run -p tuvix --example data_view      # M7: bar chart, tree and markup
 ```
 
 ## Persistent DOM in three lines
@@ -95,7 +97,7 @@ terminal.draw_persistent(|_| {})?;  // no-op: no diff walk, no backend draw
 | | what you get |
 | --- | --- |
 | **Perf** | 16-byte inline-first cell glyphs (the diff walk is ~8.6 ns/cell, 4.9x faster than M0's `String` cells), run-batched diff, persistent raster state with CHA cursor economy and EL elision — a 1-row change serializes to **1.65%** of a full frame; the M2 event queue moves an event in **~29 ns** and a waker round trip in **~57 ns**; M3 paints a full 200x60 dashboard of gauge + list + table in **~150 us**; the **M4 frame journal** decides a no-op frame in **~4 ns** and repaints one ticker band for **~1.3 us** (the full diff walk costs 105 us there), `#![forbid(unsafe_code)]` |
-| **DX** | `tuvix::try_init()` → runner with restore-on-drop, `"hello".red().bold()` styling sugar over zero-copy literal spans, `Layout::vertical([...]).areas(&area)` with a memoized split cache and the **M6 `Flex` placement policies** (Start/End/Center/SpaceBetween/SpaceAround/SpaceEvenly), `Paragraph` word wrapping + scroll state, the **M3 widget family** (Gauge, Sparkline, List, Table, Scrollbar, Chart, Canvas) behind one unified `RenderWidget` contract for stateful widgets, the **M4 theme system** (`Theme::dark()/light()/monochrome()`, `NO_COLOR` honored, one `.theme(&theme)` builder per widget), **M4 IPC previews** (watch a live app from `telnet 127.0.0.1 4223`), the **M6 interaction kit**: `Tabs`, `LineGauge`, the `Input` text field (char cursor, word motions, column-exact scroll window, `cursor_position` for the terminal cursor), and the popup pattern (`Rect::centered` + `Clear`), a `prelude`, every doc example is a doctest |
+| **DX** | `tuvix::try_init()` → runner with restore-on-drop, `"hello".red().bold()` styling sugar over zero-copy literal spans, `Layout::vertical([...]).areas(&area)` with a memoized split cache and the **M6 `Flex` placement policies** (Start/End/Center/SpaceBetween/SpaceAround/SpaceEvenly), `Paragraph` word wrapping + scroll state, the **M3 widget family** (Gauge, Sparkline, List, Table, Scrollbar, Chart, Canvas) behind one unified `RenderWidget` contract for stateful widgets, the **M4 theme system** (`Theme::dark()/light()/monochrome()`, `NO_COLOR` honored, one `.theme(&theme)` builder per widget), **M4 IPC previews** (watch a live app from `telnet 127.0.0.1 4223`), the **M6 interaction kit**: `Tabs`, `LineGauge`, the `Input` text field (char cursor, word motions, column-exact scroll window, `cursor_position` for the terminal cursor), and the popup pattern (`Rect::centered` + `Clear`), the **M7 data kit**: `BarChart` (grouped bars, values + labels, theme-aware), `Tree` (path-based selection + fold state) and the inline markup parser (`parse_line` with strict, byte-offset errors) plus `span!`/`line!`/`text!` macro sugar, a `prelude`, every doc example is a doctest |
 | **Correctness** | 670+ tests: a 500-step randomized diff-soundness property test, a wide-character corpus (ZWJ emoji, VS16, skin tones, flags, CJK, halfwidth dakuten) where incremental renders must be byte-identical to full rebuilds, an input-mode stack whose escape sequences are pinned byte-wise against crossterm 0.29's own encoder, a restore-on-drop gate proven under a real panic unwind, per-widget rendering contracts pinned by buffer-level assertions, and the **M4 gates**: banded diff == full diff, persistent visible == logical DOM over 600 randomized steps with mid-stream resizes, full-repaint parity between modes, no-op frames proven absent from the backend op log, and every theme slot mapping pinned |
 | **Tooling** | clippy::pedantic deny-warned, rustdoc deny-warned, MSRV 1.88 job, 3-OS test matrix (benches compiled natively on Windows too), bench compilation + a deterministic byte-ratio gate in CI, the **M4 scheduled perf-gate workflow** (budgets enforced weekly), Dependabot, git-cliff changelogs, a documented platform support matrix |
 
@@ -104,8 +106,8 @@ terminal.draw_persistent(|_| {})?;  // no-op: no diff walk, no backend draw
 | Crate | Contents |
 | --- | --- |
 | [`tuvix`](crates/tuvix) | facade — flat re-exports + `prelude` + `try_init`/`restore_global` + preview re-exports |
-| [`tuvix-core`](crates/tuvix-core) | geometry, style + stylize, zero-copy text, compact `Symbol` cells + diff engine with EL elision, cached layout, row-band damage, events, backend contract, Terminal, TestBackend, **runtime**: input stack, async event queue, panic restore, app runner; **M4**: persistent-DOM frame journal, theme system, IPC previews |
-| [`tuvix-widgets`](crates/tuvix-widgets) | Block, Paragraph with word wrapping + scroll state, **M3 family**: Gauge, Sparkline, List, Table, Scrollbar, Chart, Canvas (braille grid), **M6**: Clear, Tabs, LineGauge, Input + InputState — unified behind the `RenderWidget` contract, every family themable via `.theme(&Theme)` |
+| [`tuvix-core`](crates/tuvix-core) | geometry, style + stylize, zero-copy text, compact `Symbol` cells + diff engine with EL elision, cached layout, row-band damage, events, backend contract, Terminal, TestBackend, **runtime**: input stack, async event queue, panic restore, app runner; **M4**: persistent-DOM frame journal, theme system, IPC previews; **M7**: markup parser + macros |
+| [`tuvix-widgets`](crates/tuvix-widgets) | Block, Paragraph with word wrapping + scroll state, **M3 family**: Gauge, Sparkline, List, Table, Scrollbar, Chart, Canvas (braille grid), **M6**: Clear, Tabs, LineGauge, Input + InputState, **M7**: BarChart + Bar/BarGroup, Tree + TreeItem/TreeState — unified behind the `RenderWidget` contract, every family themable via `.theme(&Theme)` |
 | [`tuvix-backend-crossterm`](crates/tuvix-backend-crossterm) | ANSI renderer with persistent raster state, cursor economy, EL elision, lossless event bridge + background event reader |
 | [`tuvix-backend-ansi`](crates/tuvix-backend-ansi) | **M5** — the dependency-free ANSI renderer: the full persistent raster-state machine straight to any `Write` target |
 | [`tuvix-backend-termion`](crates/tuvix-backend-termion) | **M5** — unix platform backend over termion 4: raw mode, live size queries, event reader |
@@ -134,9 +136,10 @@ Latest stable of everything, as required by the project's dependency policy:
 | orhun/git-cliff-action | v4 (git-cliff 2.14.2) |
 | softprops/action-gh-release | v3 |
 
-M2, M3, M4 and M6 added **zero new dependencies** — the runtime, every
-M3 widget, the M4 frame journal, the theme system, the IPC previews,
-the M6 Flex pass and the M6 widgets are std-only (M3 reuses
+M2, M3, M4, M6 and M7 added **zero new dependencies** — the runtime,
+every M3 widget, the M4 frame journal, the theme system, the IPC
+previews, the M6 Flex pass, the M6 widgets and the M7 data kit are
+std-only (M3 reuses
 `unicode-width` for label layout and the core layout solver for table
 columns; M4's preview tap is a broadcast thread over `std::net` /
 `std::os::unix::net`; M6's `Input` reuses `unicode-width` for cursor
