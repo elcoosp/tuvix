@@ -94,6 +94,34 @@ fn default_param(role: u8) -> String {
     (39 + u16::from(role) * 10).to_string()
 }
 
+/// SGR parameters for an underline color: `59` for the default, the
+/// extended selector `58;5;n` for named and indexed colors (the named 16
+/// map to palette indices 0-15, matching the crossterm backend), and
+/// `58;2;r;g;b` for RGB.
+fn underline_color_params(color: Color) -> String {
+    match color {
+        Color::Reset => "59".to_string(),
+        Color::Black => "58;5;0".to_string(),
+        Color::Red => "58;5;1".to_string(),
+        Color::Green => "58;5;2".to_string(),
+        Color::Yellow => "58;5;3".to_string(),
+        Color::Blue => "58;5;4".to_string(),
+        Color::Magenta => "58;5;5".to_string(),
+        Color::Cyan => "58;5;6".to_string(),
+        Color::Gray => "58;5;7".to_string(),
+        Color::DarkGray => "58;5;8".to_string(),
+        Color::LightRed => "58;5;9".to_string(),
+        Color::LightGreen => "58;5;10".to_string(),
+        Color::LightYellow => "58;5;11".to_string(),
+        Color::LightBlue => "58;5;12".to_string(),
+        Color::LightMagenta => "58;5;13".to_string(),
+        Color::LightCyan => "58;5;14".to_string(),
+        Color::White => "58;5;15".to_string(),
+        Color::Indexed(index) => format!("58;5;{index}"),
+        Color::Rgb { r, g, b } => format!("58;2;{r};{g};{b}"),
+    }
+}
+
 /// SGR parameters for a modifier bit, on and off.
 fn modifier_params(modifier: Modifier) -> (&'static str, &'static str) {
     if modifier.contains(Modifier::BOLD) {
@@ -132,10 +160,7 @@ fn sgr_for(style: Style) -> String {
         None => params.push(default_param(1)),
     }
     if let Some(color) = style.underline_color {
-        params.push(match color {
-            Color::Reset => "59".to_string(),
-            other => color_params(other, false).replace("48;", "58;"),
-        });
+        params.push(underline_color_params(color));
     }
     // The effective modifier set: additions minus explicit removals.
     let modifier = style.add_modifier.difference(style.remove_modifier);
@@ -185,6 +210,10 @@ pub fn serialize_ansi(buffer: &Buffer) -> String {
     let mut current_link: Option<&Hyperlink> = None;
     for row in 0..height {
         out.push_str(&cup(row, 0));
+        // The terminal cursor's column: blank cells write nothing and
+        // move nothing, so the next written glyph re-addresses when the
+        // grid position has drifted (interior gaps).
+        let mut cursor_col: u16 = 0;
         let row_offset = row as usize * width as usize;
         let mut col = 0;
         while col < width {
@@ -207,6 +236,16 @@ pub fn serialize_ansi(buffer: &Buffer) -> String {
                 out.push_str(EL);
                 break;
             }
+            if cell.symbol.is_empty() && cell.hyperlink.is_none() {
+                // An interior blank with no link state: nothing to
+                // write, no cursor motion. The next glyph re-addresses.
+                col += 1;
+                continue;
+            }
+            if !cell.symbol.is_empty() && cursor_col != col {
+                out.push_str(&cup(row, col));
+                cursor_col = col;
+            }
             if cell.style != current_style {
                 out.push_str(&sgr_for(cell.style));
                 current_style = cell.style;
@@ -223,7 +262,10 @@ pub fn serialize_ansi(buffer: &Buffer) -> String {
                 }
                 current_link = cell.hyperlink.as_ref();
             }
-            out.push_str(cell.symbol.as_str());
+            if !cell.symbol.is_empty() {
+                out.push_str(cell.symbol.as_str());
+                cursor_col = col.saturating_add(cell.symbol_width() as u16);
+            }
             col += 1;
         }
     }
@@ -237,7 +279,7 @@ pub fn serialize_ansi(buffer: &Buffer) -> String {
 /// Escapes `text` as the body of a JSON string (no surrounding quotes):
 /// the two mandatory escapes, the short escapes and `\u00xx` for every
 /// other control character. Non-ASCII text passes through as UTF-8.
-fn json_escape(text: &str) -> String {
+pub(crate) fn json_escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for character in text.chars() {
         match character {
