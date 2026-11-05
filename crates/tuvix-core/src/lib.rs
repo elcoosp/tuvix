@@ -15,6 +15,7 @@
 pub mod backend;
 pub mod buffer;
 pub mod cancellation;
+pub mod clipboard;
 pub mod damage;
 pub mod event;
 pub mod geometry;
@@ -22,6 +23,7 @@ pub mod journal;
 pub mod layout;
 pub mod markup;
 pub mod preview;
+pub mod replay;
 pub mod runtime;
 pub mod scheduler;
 pub mod screen;
