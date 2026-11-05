@@ -38,9 +38,10 @@
 //! ```
 
 use crate::backend::Backend;
+use crate::cancellation::CancellationToken;
 use crate::runtime::input::{InputMode, InputStack, InputTransition};
 use crate::runtime::panic::{self, RestoreSpec};
-use crate::terminal::Terminal;
+use crate::terminal::{DrawOutcome, Terminal};
 
 /// A [`Terminal`] plus lifecycle: input modes, panic restoration and
 /// restore-on-drop.
@@ -126,6 +127,35 @@ impl<B: Backend> AppRunner<B> {
         render: impl FnOnce(&mut crate::terminal::Frame<'_>),
     ) -> Result<(), B::Error> {
         self.terminal.draw(render)
+    }
+
+    /// Renders one journal-driven frame through the wrapped
+    /// [`Terminal::draw_persistent`].
+    pub fn draw_persistent(
+        &mut self,
+        render: impl FnOnce(&mut crate::terminal::Frame<'_>),
+    ) -> Result<(), B::Error> {
+        self.terminal.draw_persistent(render)
+    }
+
+    /// Renders one frame that input is allowed to preempt, through the
+    /// wrapped [`Terminal::draw_cancellable`].
+    pub fn draw_cancellable(
+        &mut self,
+        token: &CancellationToken,
+        render: impl FnOnce(&mut crate::terminal::Frame<'_>),
+    ) -> Result<DrawOutcome, B::Error> {
+        self.terminal.draw_cancellable(token, render)
+    }
+
+    /// Renders one journal-driven frame that input is allowed to preempt,
+    /// through the wrapped [`Terminal::draw_persistent_cancellable`].
+    pub fn draw_persistent_cancellable(
+        &mut self,
+        token: &CancellationToken,
+        render: impl FnOnce(&mut crate::terminal::Frame<'_>),
+    ) -> Result<DrawOutcome, B::Error> {
+        self.terminal.draw_persistent_cancellable(token, render)
     }
 
     /// Restores the terminal: every pushed input mode is disabled in LIFO
@@ -475,6 +505,68 @@ mod tests {
                 ["\x1b[?1004h"].map(String::from)
             );
             assert!(runner.terminal().backend().is_cursor_hidden());
+        }
+
+        #[test]
+        fn draw_cancellable_passes_through_with_the_outcome() {
+            use crate::cancellation::CancellationToken;
+            use crate::terminal::DrawOutcome;
+
+            let terminal = Terminal::new(TestBackend::new(GeometrySize::new(8, 2))).unwrap();
+            let mut runner = AppRunner::new(terminal);
+            let token = CancellationToken::new();
+            let outcome = runner
+                .draw_cancellable(&token, |frame| {
+                    frame.buffer.set_string(0, 0, "hi", Style::default());
+                })
+                .unwrap();
+            assert_eq!(outcome, DrawOutcome::Committed);
+            assert_eq!(
+                runner.terminal().backend().buffer().to_string(),
+                "hi      \n        "
+            );
+
+            token.cancel();
+            let outcome = runner
+                .draw_cancellable(&token, |frame| {
+                    frame.buffer.set_string(0, 0, "junk", Style::default());
+                })
+                .unwrap();
+            assert_eq!(outcome, DrawOutcome::Cancelled);
+            assert_eq!(
+                runner.terminal().backend().buffer().to_string(),
+                "hi      \n        "
+            );
+        }
+
+        #[test]
+        fn draw_persistent_cancellable_discards_on_the_runner_too() {
+            use crate::cancellation::CancellationToken;
+            use crate::terminal::DrawOutcome;
+
+            let terminal =
+                Terminal::new_persistent(TestBackend::new(GeometrySize::new(8, 2))).unwrap();
+            let mut runner = AppRunner::new(terminal);
+            runner
+                .draw_persistent(|frame| {
+                    frame.buffer.set_string(0, 0, "hi", Style::default());
+                })
+                .unwrap();
+
+            let token = CancellationToken::new();
+            let outcome = runner
+                .draw_persistent_cancellable(&token, |frame| {
+                    frame.buffer.set_string(0, 0, "junk", Style::default());
+                    if let Some(stage) = frame.cancellation() {
+                        stage.cancel();
+                    }
+                })
+                .unwrap();
+            assert_eq!(outcome, DrawOutcome::Cancelled);
+            assert_eq!(
+                runner.terminal().backend().buffer().to_string(),
+                "hi      \n        "
+            );
         }
     }
 
