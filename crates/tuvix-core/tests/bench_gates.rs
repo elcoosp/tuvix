@@ -240,3 +240,72 @@ fn animate(frame: &mut tuvix_core::terminal::Frame<'_>, tick: u64) {
         frame.buffer.set_string(0, row, band.as_str(), Style::new());
     }
 }
+
+#[test]
+#[ignore = "timing gate: run with `cargo test --release --ignored` and record in docs/BENCHMARKS.md"]
+fn b11_scrub_latency_and_recording_overhead() {
+    // The architecture's DevTools story (§5.8) has two costs:
+    //
+    // 1. **Scrub latency** — reconstruct any recorded frame into a
+    //    renderable Screen. "Jump to any moment" must be far below a
+    //    frame budget even at the 200x60 size.
+    // 2. **Recording overhead** — what SessionRecorder adds per frame
+    //    on top of the serialize the preview hook already performs.
+    use std::sync::Arc;
+    use tuvix_core::preview::{FrameSink, HistorySink};
+    use tuvix_core::screen::Screen;
+    use tuvix_core::session::SessionRecorder;
+
+    // Capture a realistic full-screen snapshot through the real hook.
+    let mut terminal = Terminal::new(TestBackend::new(Size::new(WIDTH, HEIGHT))).unwrap();
+    let history = HistorySink::unbounded();
+    terminal.set_preview(history.clone());
+    terminal
+        .draw(|frame| {
+            let header = "B11 scrub gate tick 7 — the quick brown fox";
+            frame.buffer.set_string(0, 0, header, Style::new());
+            for row in 1..HEIGHT {
+                let band = format!("row {row:02}: 0123456789 abcdefghijklmnopqrstuvwxyz {row}");
+                frame.buffer.set_string(0, row, band.as_str(), Style::new());
+            }
+        })
+        .unwrap();
+    let snapshot = Arc::new(history.latest().expect("one flushed frame"));
+    terminal.clear_preview();
+
+    // 1. Scrub: reconstruct the frame 200 times, take p99.
+    let scrubs = 200;
+    let mut latencies = Vec::with_capacity(scrubs);
+    for _ in 0..scrubs {
+        let start = Instant::now();
+        let screen = Screen::from_ansi(black_box(snapshot.as_str()))
+            .expect("the pipeline emits canonical snapshots");
+        black_box(screen.width());
+        latencies.push(start.elapsed());
+    }
+    latencies.sort_unstable();
+    let p99 = latencies[scrubs * 99 / 100 - 1];
+    let median = latencies[scrubs / 2];
+    assert!(
+        p99 <= Duration::from_millis(2),
+        "B11 gate failed: scrub p99 {p99:?} (budget 2 ms)"
+    );
+    println!("B11 gate: scrub p99 {p99:?} (median {median:?}) @ {WIDTH}x{HEIGHT} (budget 2 ms)");
+
+    // 2. Recording overhead per frame.
+    let session = SessionRecorder::unbounded();
+    let mut sink = session.clone();
+    let frames = 1_000;
+    let start = Instant::now();
+    for _ in 0..frames {
+        sink.on_frame(black_box(snapshot.as_str()));
+    }
+    let per_frame = start.elapsed() / frames;
+    assert!(
+        per_frame <= Duration::from_micros(50),
+        "B11 gate failed: {per_frame:?} per recorded frame (budget 50 us)"
+    );
+    println!(
+        "B11 gate: recording overhead {per_frame:?} per frame @ {WIDTH}x{HEIGHT} (budget 50 us)"
+    );
+}
