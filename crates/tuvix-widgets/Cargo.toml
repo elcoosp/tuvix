@@ -27,5 +27,9 @@ bench = false
 name = "widgets"
 harness = false
 
+[[bench]]
+name = "scrollable"
+harness = false
+
 [lints]
 workspace = true
