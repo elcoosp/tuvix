@@ -16,6 +16,7 @@ unicode-segmentation.workspace = true
 unicode-width.workspace = true
 
 [dev-dependencies]
+tuvix-memgate = { path = "../tuvix-memgate" }
 criterion.workspace = true
 pretty_assertions.workspace = true
 
@@ -56,6 +57,10 @@ harness = false
 
 [[bench]]
 name = "devtools"
+harness = false
+
+[[bench]]
+name = "replay"
 harness = false
 
 [lints]
