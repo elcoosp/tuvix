@@ -5,6 +5,7 @@
 use core::convert::Infallible;
 
 use crate::buffer::{Buffer, DiffRun};
+use crate::clipboard::ClipboardSelection;
 use crate::geometry::{Position, Rect, Size};
 
 /// A region of the screen to clear.
@@ -72,6 +73,25 @@ pub trait Backend {
     /// it.
     fn write_control(&mut self, sequence: &str) -> Result<(), Self::Error> {
         let _ = sequence;
+        Ok(())
+    }
+
+    /// Asks the terminal to put `contents` on the system clipboard (OSC
+    /// 52). The terminal may ignore the request or prompt the user; there
+    /// is deliberately no readback — clipboard *queries* are the variant
+    /// terminals gate behind prompts, so the framework only writes.
+    ///
+    /// Empty contents ask the terminal to clear the clipboard. The
+    /// payload is base64 (escape-free by construction), capped at
+    /// [`OSC52_MAX_PAYLOAD`](crate::clipboard::OSC52_MAX_PAYLOAD) —
+    /// oversized requests fail rather than truncate.
+    ///
+    /// The default implementation is a no-op for backends that cannot
+    /// reach the clipboard; the reference implementations override it
+    /// (`AnsiBackend`/`CrosstermBackend` write the sequence, `TestBackend`
+    /// records it in the control log).
+    fn set_clipboard(&mut self, contents: &str) -> Result<(), Self::Error> {
+        let _ = contents;
         Ok(())
     }
 }
@@ -224,6 +244,16 @@ impl Backend for TestBackend {
 
     fn write_control(&mut self, sequence: &str) -> Result<(), Self::Error> {
         self.control_log.push(sequence.to_string());
+        Ok(())
+    }
+
+    fn set_clipboard(&mut self, contents: &str) -> Result<(), Self::Error> {
+        // The log cannot fail (the error type is Infallible), so an
+        // oversized payload is skipped here; real backends return the
+        // [`ClipboardError`](crate::clipboard::ClipboardError) instead.
+        if let Ok(sequence) = crate::clipboard::encode_osc52(ClipboardSelection::System, contents) {
+            self.control_log.push(sequence);
+        }
         Ok(())
     }
 }
