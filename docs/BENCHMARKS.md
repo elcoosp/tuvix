@@ -14,6 +14,26 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M12 scorecard (2026-11)
+
+The M12 additions (`tuvix-core/benches/embed.rs`, the B15 gate in
+`tuvix-ffi/tests/bench_gates.rs`, criterion 0.8.2, release profile,
+200x60 budget viewport = 12,000 cells, same CI-class sandbox,
+Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `embed/e1_parse_10k_packet_200x60` | the strict decode of a 10,000-mutation packet (header, six ops, style encoding, control-character rejection armed) | **~525 us** | pass — **~19 ns per mutation**, ~4 Melem/s; the strict parser is not the bottleneck |
+| `embed/e2_apply_10k_packet_200x60` | parse + apply through the safe core: 10,000 one-cell text mutations landing on the buffer | **~1.21 ms** | pass — the batch lands at **~826k mutations/sec** through pure safe code; the §8 budget is about the ABI boundary, measured next |
+| `snapshot/e3_encode_snapshot_200x60` | the outbound half: a fully painted 200x60 viewport into a snapshot packet (empty rows one byte each) | **~171 us** | pass |
+| `snapshot/e4_decode_snapshot_200x60` | a snapshot packet back into a fresh `Buffer`, cell-for-cell | **~172 us** | pass — encode + decode together cost ~0.34 ms, ~6x under the B2 frame budget |
+
+Gate:
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B15 FFI mutation throughput (10k-mutation packet x20 through the raw C ABI, 200x60) | > 50,000 mutations/sec | **~9.3M mutations/sec** (108 ns/mutation, strict parse included) | pass — **185x headroom**; the §8 budget table's last unmeasured row closes, and batching is the point: one boundary crossing per 10,000 mutations |
+
 ## M11 scorecard (2026-11)
 
 The M11 additions (`tuvix-core/benches/interaction.rs`,
