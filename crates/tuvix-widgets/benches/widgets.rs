@@ -10,9 +10,9 @@ use tuvix_core::layout::{Constraint, Layout};
 use tuvix_core::style::{Color, Style};
 use tuvix_core::widget::{RenderWidget, Widget};
 use tuvix_widgets::{
-    Axis, Block, Chart, Dataset, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem,
-    ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline, Table, TableRow,
-    TableState, Tabs,
+    Axis, Bar, BarChart, BarGroup, Block, Chart, Dataset, Gauge, GraphType, Input, InputState,
+    LineGauge, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    Sparkline, Table, TableRow, TableState, Tabs, Tree, TreeItem, TreeState,
 };
 
 /// The architecture budget viewport: 200x60.
@@ -277,12 +277,70 @@ fn bench_widget_suite(c: &mut Criterion) {
     group.finish();
 }
 
+/// M7: the bar chart and the tree at the budget viewport.
+fn bench_widgets_m7(c: &mut Criterion) {
+    let mut group = c.benchmark_group("widgets");
+    group.throughput(Throughput::Elements(u64::from(WIDTH) * u64::from(HEIGHT)));
+    let area = Rect::new(0, 0, WIDTH, HEIGHT);
+
+    group.bench_function("bar_chart_2_groups_200x60", |b| {
+        let chart = BarChart::default()
+            .group(
+                BarGroup::new([
+                    Bar::new(72).label("canary"),
+                    Bar::new(88).label("beta"),
+                    Bar::new(61).label("stable"),
+                ])
+                .label("1.1"),
+            )
+            .group(
+                BarGroup::new([
+                    Bar::new(45).label("canary"),
+                    Bar::new(97).label("beta"),
+                    Bar::new(79).label("stable"),
+                ])
+                .label("1.2"),
+            )
+            .max(100);
+        b.iter(|| {
+            let mut buffer = Buffer::empty(area);
+            Widget::render(black_box(chart.clone()), black_box(area), &mut buffer);
+        });
+    });
+
+    group.bench_function("tree_256_nodes_200x60", |b| {
+        // A 256-node balanced-ish tree: 16 roots with 15 children each.
+        let items: Vec<TreeItem> = (0..16)
+            .map(|root| {
+                let children: Vec<TreeItem> = (0..15)
+                    .map(|index| TreeItem::new(format!("n{root}-{index}: the quick brown fox")))
+                    .collect();
+                TreeItem::with_children(format!("root {root}"), children)
+            })
+            .collect();
+        let tree = Tree::new(items).highlight_style(Style::new().bg(Color::DarkGray));
+        let mut state = TreeState::default().with_selected([8, 7]);
+        b.iter(|| {
+            let mut buffer = Buffer::empty(area);
+            RenderWidget::render(
+                black_box(tree.clone()),
+                black_box(area),
+                &mut buffer,
+                &mut state,
+            );
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_widgets_bars,
     bench_widgets_lists,
     bench_widgets_data,
     bench_widgets_m6,
+    bench_widgets_m7,
     bench_widget_suite
 );
 criterion_main!(benches);
