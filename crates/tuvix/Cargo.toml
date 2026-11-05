@@ -1,0 +1,22 @@
+[package]
+name = "tuvix"
+description = "A high-performance terminal UI framework with best-in-class developer experience"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+crossterm.workspace = true
+tuvix-backend-ansi.workspace = true
+tuvix-backend-crossterm.workspace = true
+tuvix-backend-termion.workspace = true
+tuvix-core.workspace = true
+tuvix-widgets.workspace = true
+
+[lints]
+workspace = true
