@@ -12,7 +12,11 @@ hyperlinks on cells, terminal-weighted layout constraints, structured JSON
 frame export, and backends beyond crossterm — a zero-dependency ANSI
 renderer and a termion (unix) backend — a grouped `BarChart`, a
 collapsible `Tree`, an inline markup parser with `span!`/`line!`/
-`text!` macro sugar — and the differentiator no incumbent ships: a
+`text!` macro sugar — a multi-line `TextArea` with exact coalescing
+undo/redo, `SessionReplay` — the golden loop that replays a recorded
+session through your app and names the frame that diverged — and a
+write-only OSC 52 clipboard whose base64 payload can never break its
+framing — and the differentiator no incumbent ships: a
 cooperative frame scheduler where **input preempts render** (ticks
 coalesce render requests, a probe yields to waiting keystrokes, and
 abandoned passes are discarded, never committed), monotonic
@@ -32,7 +36,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-tuvix = "0.9"
+tuvix = "0.11"
 ```
 
 ```rust
