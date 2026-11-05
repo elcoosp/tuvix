@@ -643,6 +643,183 @@ impl FrameSink for RecordingSink {
     }
 }
 
+/// The time-travel frame history (M8-D): a bounded, in-memory ring of
+/// full-frame ANSI snapshots captured through the M4 preview hook.
+///
+/// Attach it with [`Terminal::set_preview`](crate::terminal::Terminal::set_preview)
+/// and every flushed frame — committed, no-op — is recorded as the exact
+/// byte snapshot the screen showed. The history is the raw material of the
+/// architecture's DevTools story (§5.8): scrub to any retained frame,
+/// diff two frames, or assert golden frames in tests.
+///
+/// The sink is a cheap `Clone` handle onto one ring (the `RecordingSink`
+/// pattern): clone it before handing it to the terminal and keep reading
+/// while the terminal records.
+///
+/// # Indexing
+///
+/// `get(0)` is the *oldest retained* frame. When the ring is full, the
+/// oldest frames are dropped and counted in
+/// [`dropped_frames`](Self::dropped_frames); the absolute frame number of
+/// local index `i` is `dropped_frames() + i`, and
+/// [`total_frames`](Self::total_frames) is the count ever captured.
+///
+/// # Examples
+///
+/// Scrubbing a live recording:
+///
+/// ```
+/// use tuvix_core::backend::TestBackend;
+/// use tuvix_core::geometry::Size;
+/// use tuvix_core::preview::HistorySink;
+/// use tuvix_core::terminal::Terminal;
+///
+/// let mut terminal = Terminal::new(TestBackend::new(Size::new(10, 1))).unwrap();
+/// let history = HistorySink::unbounded();
+/// terminal.set_preview(history.clone());
+///
+/// for tick in 0..3 {
+///     let label = format!("tick {tick}");
+///     terminal
+///         .draw(|frame| {
+///             frame.buffer.set_string(0, 0, label.as_str(), Default::default());
+///         })
+///         .unwrap();
+/// }
+///
+/// assert_eq!(history.len(), 3);
+/// assert!(history.get(0).unwrap().contains("tick 0"));
+/// assert!(history.latest().unwrap().contains("tick 2"));
+/// ```
+///
+/// The golden-frame pattern with a bounded ring:
+///
+/// ```
+/// use tuvix_core::backend::TestBackend;
+/// use tuvix_core::geometry::Size;
+/// use tuvix_core::preview::HistorySink;
+/// use tuvix_core::terminal::Terminal;
+///
+/// let mut terminal = Terminal::new(TestBackend::new(Size::new(10, 1))).unwrap();
+/// let history = HistorySink::bounded(2);
+/// terminal.set_preview(history.clone());
+///
+/// for tick in 0..4 {
+///     let label = format!("tick {tick}");
+///     terminal
+///         .draw(|frame| {
+///             frame.buffer.set_string(0, 0, label.as_str(), Default::default());
+///         })
+///         .unwrap();
+/// }
+///
+/// // Only the newest two screens survive; the ring dropped the rest.
+/// assert_eq!(history.len(), 2);
+/// assert_eq!(history.dropped_frames(), 2);
+/// assert_eq!(history.total_frames(), 4);
+/// assert!(history.get(0).unwrap().contains("tick 2"));
+/// ```
+#[derive(Debug, Clone)]
+pub struct HistorySink {
+    state: std::sync::Arc<std::sync::Mutex<HistoryState>>,
+}
+
+#[derive(Debug)]
+struct HistoryState {
+    /// Retention limit (`usize::MAX` when unbounded).
+    capacity: usize,
+    frames: std::collections::VecDeque<String>,
+    dropped: u64,
+}
+
+impl HistorySink {
+    /// Creates a history that keeps the newest `capacity` frames, dropping
+    /// the oldest when full. A capacity of 0 is clamped to 1.
+    pub fn bounded(capacity: usize) -> Self {
+        Self {
+            state: std::sync::Arc::new(std::sync::Mutex::new(HistoryState {
+                capacity: capacity.max(1),
+                frames: std::collections::VecDeque::new(),
+                dropped: 0,
+            })),
+        }
+    }
+
+    /// Creates a history that keeps every frame.
+    pub fn unbounded() -> Self {
+        Self::bounded(usize::MAX)
+    }
+
+    /// The retention limit (`usize::MAX` when unbounded).
+    pub fn capacity(&self) -> usize {
+        self.lock().capacity
+    }
+
+    /// Frames currently retained.
+    pub fn len(&self) -> usize {
+        self.lock().frames.len()
+    }
+
+    /// Whether nothing is retained.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Frames dropped from the front of the ring so far.
+    pub fn dropped_frames(&self) -> u64 {
+        self.lock().dropped
+    }
+
+    /// Frames ever captured (retained + dropped).
+    pub fn total_frames(&self) -> u64 {
+        let state = self.lock();
+        state.dropped + state.frames.len() as u64
+    }
+
+    /// The retained frame at local `index` (0 = oldest retained).
+    pub fn get(&self, index: usize) -> Option<String> {
+        self.lock().frames.get(index).cloned()
+    }
+
+    /// The most recent frame, if any.
+    pub fn latest(&self) -> Option<String> {
+        self.lock().frames.back().cloned()
+    }
+
+    /// Every retained frame, oldest first, as owned strings.
+    pub fn frames(&self) -> Vec<String> {
+        self.lock().frames.iter().cloned().collect()
+    }
+
+    /// Empties the history, resetting the dropped and total counters: the
+    /// start of a new recording.
+    pub fn clear(&mut self) {
+        let mut state = self.lock();
+        state.frames.clear();
+        state.dropped = 0;
+    }
+
+    /// Locks the state, recovering from a poisoned mutex (a panicking
+    /// reader must not take the recording down).
+    fn lock(&self) -> std::sync::MutexGuard<'_, HistoryState> {
+        match self.state.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(),
+        }
+    }
+}
+
+impl FrameSink for HistorySink {
+    fn on_frame(&mut self, ansi: &str) {
+        let mut state = self.lock();
+        if state.frames.len() == state.capacity {
+            state.frames.pop_front();
+            state.dropped += 1;
+        }
+        state.frames.push_back(ansi.to_string());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -895,6 +1072,125 @@ mod tests {
         sink.on_frame("two");
         let frames = sink.frames().lock().unwrap().clone();
         assert_eq!(frames, vec!["one".to_string(), "two".to_string()]);
+    }
+
+    mod history {
+        use super::*;
+        use crate::backend::TestBackend;
+        use crate::geometry::Size;
+        use crate::terminal::Terminal;
+
+        fn draw_tick(terminal: &mut Terminal<TestBackend>, tick: u8) {
+            let label = format!("tick {tick}");
+            terminal
+                .draw(|frame| {
+                    frame
+                        .buffer
+                        .set_string(0, 0, label.as_str(), Style::default());
+                })
+                .unwrap();
+        }
+
+        #[test]
+        fn unbounded_history_keeps_every_frame_in_order() {
+            let mut terminal = Terminal::new(TestBackend::new(Size::new(10, 1))).unwrap();
+            let history = HistorySink::unbounded();
+            terminal.set_preview(history.clone());
+
+            for tick in 0..3 {
+                draw_tick(&mut terminal, tick);
+            }
+
+            assert_eq!(history.len(), 3);
+            assert_eq!(history.dropped_frames(), 0);
+            assert_eq!(history.total_frames(), 3);
+            assert!(history.get(0).unwrap().contains("tick 0"));
+            assert!(history.get(1).unwrap().contains("tick 1"));
+            assert!(history.get(2).unwrap().contains("tick 2"));
+            assert!(history.latest().unwrap().contains("tick 2"));
+            assert_eq!(history.capacity(), usize::MAX);
+            let frames = history.frames();
+            assert_eq!(frames.len(), 3);
+        }
+
+        #[test]
+        fn bounded_history_drops_the_oldest_and_counts_them() {
+            let mut terminal = Terminal::new(TestBackend::new(Size::new(10, 1))).unwrap();
+            let history = HistorySink::bounded(2);
+            terminal.set_preview(history.clone());
+
+            for tick in 0..4 {
+                draw_tick(&mut terminal, tick);
+            }
+
+            assert_eq!(history.len(), 2);
+            assert_eq!(history.dropped_frames(), 2);
+            assert_eq!(history.total_frames(), 4);
+            // Local index 0 is the oldest *retained* frame ("tick 2");
+            // absolute frame number = dropped + local index.
+            assert!(history.get(0).unwrap().contains("tick 2"));
+            assert!(history.get(1).unwrap().contains("tick 3"));
+            assert!(history.latest().unwrap().contains("tick 3"));
+            assert_eq!(history.capacity(), 2);
+        }
+
+        #[test]
+        fn zero_capacity_is_clamped_to_one() {
+            let history = HistorySink::bounded(0);
+            assert_eq!(history.capacity(), 1);
+            let mut sink = history.clone();
+            sink.on_frame("only");
+            sink.on_frame("latest");
+            assert_eq!(history.len(), 1);
+            assert_eq!(history.dropped_frames(), 1);
+            assert!(history.latest().unwrap().contains("latest"));
+        }
+
+        #[test]
+        fn clones_read_the_same_ring() {
+            let history = HistorySink::bounded(4);
+            let mut recorder = history.clone();
+            recorder.on_frame("a");
+            recorder.on_frame("b");
+            assert_eq!(history.len(), 2);
+            assert_eq!(history.get(1).unwrap(), "b");
+            // Clearing through one handle clears the shared ring.
+            let mut writer = history.clone();
+            writer.clear();
+            assert!(history.is_empty());
+            assert_eq!(history.total_frames(), 0);
+        }
+
+        #[test]
+        fn no_op_frames_are_recorded_too() {
+            // The O(1) no-op path still flushes, so the history shows the
+            // steady state — time travel must not skip quiet frames.
+            let mut terminal =
+                Terminal::new_persistent(TestBackend::new(Size::new(10, 1))).unwrap();
+            let history = HistorySink::unbounded();
+            terminal.set_preview(history.clone());
+
+            draw_tick(&mut terminal, 0);
+            terminal.draw_persistent(|_| {}).unwrap(); // no-op frame
+            draw_tick(&mut terminal, 1);
+
+            assert_eq!(history.len(), 3);
+            assert!(history.get(1).unwrap().contains("tick 0"));
+        }
+
+        #[test]
+        fn the_history_is_send_across_threads() {
+            fn assert_send<T: Send>() {}
+            assert_send::<HistorySink>();
+            let history = HistorySink::bounded(2);
+            let writer = history.clone();
+            let handle = std::thread::spawn(move || {
+                let mut writer = writer;
+                writer.on_frame("from a thread");
+            });
+            handle.join().unwrap();
+            assert_eq!(history.latest().unwrap(), "from a thread");
+        }
     }
 
     #[cfg(unix)]
