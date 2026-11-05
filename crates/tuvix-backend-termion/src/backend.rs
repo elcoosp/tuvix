@@ -120,6 +120,10 @@ impl<W: Write + AsFd> Backend for TermionBackend<W> {
     fn write_control(&mut self, sequence: &str) -> Result<(), Self::Error> {
         self.inner.write_control(sequence)
     }
+
+    fn set_clipboard(&mut self, contents: &str) -> Result<(), Self::Error> {
+        self.inner.set_clipboard(contents)
+    }
 }
 
 #[cfg(test)]
