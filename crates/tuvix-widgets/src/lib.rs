@@ -9,6 +9,7 @@
 //! paint into a [`tuvix_core::buffer::Buffer`] and are pure functions of
 //! `(self, area, buffer)` — trivially testable with plain buffers.
 
+pub mod bar_chart;
 pub mod block;
 pub mod canvas;
 pub mod chart;
@@ -23,7 +24,9 @@ pub mod scrollbar;
 pub mod sparkline;
 pub mod table;
 pub mod tabs;
+pub mod tree;
 
+pub use bar_chart::{Bar, BarChart, BarGroup};
 pub use block::{Block, BorderType, Borders};
 pub use canvas::Canvas;
 // Canvas shapes stay in the `canvas` module: its `Line` would otherwise
@@ -40,3 +43,4 @@ pub use scrollbar::{Scrollbar, ScrollbarOrientation, ScrollbarState};
 pub use sparkline::Sparkline;
 pub use table::{Table, TableCell, TableRow, TableState};
 pub use tabs::Tabs;
+pub use tree::{Tree, TreeItem, TreeState};
