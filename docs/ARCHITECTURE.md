@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M10 implemented and green. Every design decision
+> Status: M0 through M11 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -406,6 +406,7 @@ pub trait Backend {
 | **M8 — Responsiveness & time-travel** | cooperative `CancellationToken` (monotonic, parent-child), `Terminal::draw_cancellable` / `draw_persistent_cancellable` with stage-boundary checkpoints and discard-not-commit semantics, the `Scheduler` (input-priority ticks, render coalescing, O(1) idle decision), the `HistorySink` time-travel ring over the M4 preview hook; scheduler benches + the B10 input-to-paint gate | **done** |
 | **M9 — Time-travel DevTools** | the `SessionRecorder` timeline (frames + input events on one clock, bounded ring that evicts adjacent input with the oldest frame so replays start from a frame), `Screen` — a strict parser for the canonical ANSI snapshot with byte-offset errors, reconstructing live `Buffer`s that diff and render like the real thing, `FrameInspector` (picture-in-picture scrub view with the dot-bar timeline footer), the session JSON document (zero-dep writer, strict minimal parser, full `Event` vocabulary) and `SessionRecorder::diff` as the golden-session gate; devtools + inspector benches, the B11 scrub-latency gate; snapshot-encoder repairs the parser exposed (mid-row cursor re-addressing for interior blanks, correct `58;5;n` named underline colors in both ANSI encoders) | **done** |
 | **M10 — Applications: editing, replay & clipboard** | `TextArea` — the multi-line editor (char-indexed cursor, goal column, column-exact window sync, bounded op-based undo/redo with coalescing groups), `SessionReplay` — the golden loop replaying a recorded session through a deterministic app with the seed checkpoint for bounded rings and frame-precise divergence reports, the write-only OSC 52 clipboard (`Backend::set_clipboard`, in-house RFC 4648, 64 KiB cap, raster-state neutral), the B12 replay gate and the B13 memory gate closing the §1 budget table | **done** |
+| **M11 — Interaction depth** | `Scrollable` — the viewport widget (any `RenderWidget` behind a scroll window: cached child paint in the state, explicit invalidation, offset clamping, wide-glyph clip/snap honesty, optional attached `Scrollbar`, mouse-wheel mapping), `FocusRing` — focus routing as a type over the app's own pane enum (wrap-around advance/retreat, lookup by value or index, explicit unfocus), `Keymap` — the declarative binding trie (single keys and multi-key chords, subset modifier semantics, press-only matching, `Pending`/`Matched`/`Miss` outcomes), the B14 viewport-scroll gate; the `interaction` benches and the `interaction` example | **done** |
 
 ## 12. Decision log
 
@@ -910,3 +911,49 @@ pub trait Backend {
   GlobalAlloc` delegating verbatim to the system allocator — the
   workspace `forbid` stands everywhere else, and the safety argument
   lives with the code.
+
+## 18. M11 decisions (2026-11)
+
+- **The viewport's scratch surface lives in the state and is invalidated
+  explicitly, not re-rendered every frame.** The first implementation
+  re-painted the child on every frame and the B14 gate failed it honestly:
+  a 400-row content repaint pushed the scroll step to ~1.7 ms, over the
+  1 ms budget, before any diff ran. The shipped design paints the child
+  once per invalidation and blits the window the rest of the time —
+  ~166 us per scroll step, the same explicit-dirtiness contract the
+  persistent-DOM journal uses one level down. A frame that only scrolls
+  costs the window; a content change costs the child's own paint on top,
+  which is the child's cost, not the viewport's.
+- **The scroll state remembers the world it clamps against.** Offsets are
+  clamped to `content − viewport` at render, and the state keeps both
+  numbers so the scroll operations are honest between frames too
+  (`scroll_down` returns `false` at the bottom instead of lying until the
+  next render). Before the first frame the app can prime the content
+  extent with `set_content`; the zero viewport then means the clamp is the
+  bare content, which is what "nothing is visible yet" means.
+- **Wide glyphs are never split by the window edge — in either direction.**
+  A pair crossing the *right* edge is clipped (blanked), never emitted as
+  a lone leading half mid-row, and a window starting on a covered half
+  snaps back one column to the leading edge. The same terminal-pair
+  honesty the buffer's write path enforces, applied at the viewport
+  boundary; the unit tests pin both edges over CJK content.
+- **Focus is routing, not a widget trait.** Widget states stay
+  key-agnostic (the M6 contract), so focus is the app's mapping question:
+  "which pane receives the editing keys?" `FocusRing<T>` answers it over
+  the app's own pane enum — wrap-around `advance`/`retreat`, lookup by
+  value or index, an explicit unfocused state, and no trait for widgets to
+  implement. The methods are `advance`/`retreat`, not `next`/`previous`:
+  a ring is not an `Iterator` (no termination, returns a reference), and
+  confusing the two names buys nothing.
+- **The keymap shadows prefixes, on purpose.** With both `g` and `gg`
+  bound, a lone `g` stays `Pending` forever — the trie cannot know a chord
+  is over without a timeout, and a timeout is a policy the framework
+  should not own (`reset` exists for apps that want one). Modifiers match
+  as a subset (a `Ctrl+C` binding fires for `Ctrl+Alt+C`), only press
+  events advance matching, and commands are cloned out so `step` needs no
+  lifetime on the outcome — the app owns a plain `Matched(Command)`.
+  `Miss` and `Matched` reset the matcher; `Pending` keeps it open.
+- **Zero new dependencies, again.** The trie is a `Vec`-backed tree, the
+  ring a `Vec` and an index, the viewport a second `Buffer`. The M5
+  framing argument still holds: the fewer bytes that cross the trust
+  boundary, the fewer the escape hatches to audit.
