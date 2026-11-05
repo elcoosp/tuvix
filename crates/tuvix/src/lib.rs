@@ -140,16 +140,17 @@ pub use tuvix_backend_ansi::AnsiBackend;
 pub use tuvix_backend_crossterm as backend_crossterm;
 pub use tuvix_backend_crossterm::{CrosstermBackend, CrosstermEvents, to_tuvix_event};
 pub use tuvix_backend_termion as backend_termion;
-#[cfg(unix)]
 pub use tuvix_backend_termion::{TermionBackend, TermionEvents};
 pub use tuvix_core::layout::Flex;
 pub use tuvix_core::markup::{MarkupError, parse_line, parse_spans, parse_text};
 pub use tuvix_core::{line, span, text};
+pub use tuvix_ffi as ffi;
 // `text` is imported above with the `line`/`span` macros: one `use`
 // brings the module and the macro namespaces in together.
 pub use tuvix_core::{
-    backend, buffer, cancellation, clipboard, damage, event, focus, geometry, journal, keymap,
-    layout, preview, replay, scheduler, screen, session, style, stylize, terminal, theme, widget,
+    backend, buffer, cancellation, clipboard, damage, embed, event, focus, geometry, journal,
+    keymap, layout, preview, replay, scheduler, screen, session, style, stylize, terminal, theme,
+    widget,
 };
 pub use tuvix_widgets::{
     Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Clear, Dataset,
@@ -176,6 +177,10 @@ pub mod prelude {
     pub use tuvix_core::cancellation::{CancellationToken, Cancelled};
     pub use tuvix_core::clipboard::{
         ClipboardError, ClipboardSelection, OSC52_MAX_PAYLOAD, encode_osc52,
+    };
+    pub use tuvix_core::embed::{
+        Mutation, MutationReader, PacketError, PacketErrorKind, PacketWriter, decode_snapshot,
+        encode_snapshot, parse_packets,
     };
     pub use tuvix_core::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     pub use tuvix_core::focus::FocusRing;

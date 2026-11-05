@@ -16,6 +16,7 @@ tuvix-backend-ansi.workspace = true
 tuvix-backend-crossterm.workspace = true
 tuvix-backend-termion.workspace = true
 tuvix-core.workspace = true
+tuvix-ffi.workspace = true
 tuvix-widgets.workspace = true
 
 [lints]
