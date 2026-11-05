@@ -1,0 +1,46 @@
+[package]
+name = "tuvix-ffi"
+description = "The C ABI embedding boundary of the tuvix terminal UI framework"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords = ["tui", "terminal", "ffi", "bindings"]
+categories = ["command-line-interface", "external-ffi-bindings"]
+
+[lib]
+crate-type = ["rlib", "cdylib", "staticlib"]
+bench = false
+
+[dependencies]
+tuvix-core.workspace = true
+
+[lints.rust]
+# The whole crate is one audited C ABI boundary: the `unsafe` lives only in
+# the thin `extern "C"` wrappers around safe `tuvix-core` calls, each with
+# its own `# Safety` contract (see the crate docs for the full safety
+# argument). This member deliberately does not inherit the workspace lints
+# so the allow is scoped to the boundary and nothing else — the same
+# exception `tuvix-memgate` makes for its counting allocator.
+unsafe_code = "allow"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+# The workspace pedantic policy, kept in force across the boundary.
+pedantic = { level = "warn", priority = -1 }
+# Terminal-grid math works in u16 with explicit bounds checks; allow the cast noise.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+# `io::Result` is pervasive; error documentation lives on the trait contracts.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# ABI status codes are meant to be compared, not silently dropped only.
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+# ANSI/README terms inside rustdoc would require backticks everywhere.
+doc_markdown = "allow"
