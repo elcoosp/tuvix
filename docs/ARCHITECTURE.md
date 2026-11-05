@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M6 implemented and green. Every design decision
+> Status: M0 through M7 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -130,13 +130,16 @@ tuvix/
 │   ├── tuvix-core/               # pure: geometry, style, text, buffer, diff,
 │   │   │                        # layout, events, backend contract, Terminal,
 │   │   │                        # runtime (input stack, event queue, runner),
-│   │   │                        # journal (M4), theme (M4), preview (M4)
+│   │   │                        # journal (M4), theme (M4), preview (M4),
+│   │   │                        # markup parser + span!/line!/text! macros (M7)
 │   │   └── deps: bitflags, unicode-width, unicode-segmentation
 │   ├── tuvix-widgets/            # Block, Paragraph (M0/M1); M3: Gauge,
 │   │   │                        # Sparkline, List, Table, Scrollbar, Chart,
 │   │   │                        # Canvas, shared Marker, RenderWidget impls;
 │   │   │                        # M4: .theme(&Theme) mapping on every family;
 │   │   │                        # M6: Clear, Tabs, LineGauge, Input(+InputState)
+│   │   │                        # M7: BarChart(+Bar/BarGroup), Tree(+TreeItem/
+│   │   │                        # TreeState)
 │   ├── tuvix-backend-crossterm/  # ANSI renderer + event bridge + reader
 │   │   └── deps: crossterm 0.29
 │   ├── tuvix-backend-ansi/       # M5: the dependency-free ANSI renderer
@@ -152,7 +155,8 @@ tuvix/
 │                                 # re-exports (M4) + termion runtime
 │                                 # (M5); examples: hello, async_events,
 │                                 # widgets, preview, simple_backend (M5),
-│                                 # termion_hello (M5), inputs (M6)
+│                                 # termion_hello (M5), inputs (M6),
+│                                 # data_view (M7)
 ├── docs/                        # ARCHITECTURE.md, BENCHMARKS.md,
 │                                # PLATFORMS.md (M4), RELEASE.md
 ├── .github/workflows/           # ci.yml, perf.yml (M4), release.yml
@@ -179,7 +183,10 @@ M3 and M4 also added none: the journal, the theme system and the IPC
 previews (a broadcast thread over `std::net` / `std::os::unix::net`) are
 all std-only. M5 adds exactly one, deliberately: `termion 4.0.6`, the
 unix platform backend — target-gated so non-unix builds of the workspace
-(Windows in CI) compile the crate as an empty library. The simple ANSI
+(Windows in CI) compile the crate as an empty library. M6 and M7 added
+none: Flex, the popup kit, the M7 `BarChart`, the `Tree` and the markup
+parser are std-only (the markup parser reuses the existing
+`unicode-width` dependency for label math). The simple ANSI
 backend is dependency-free by design: it *is* the raster machine, with no
 library in between.
 
@@ -319,6 +326,9 @@ pub trait Backend {
 | Tabs (M6) | layout with default divider/padding, selection highlight covering padding, out-of-range selection, base style + divider, custom divider/padding, clipping, block wrapping, span styles, trait pass-through |
 | LineGauge (M6) | label + gap + bar layout, full/zero/clamped ratios, integer flooring, dimmed track style, span-styled labels, block inner, first-row-only in tall areas, overlong labels |
 | Input (M6) | editing ops (insert, delete, word delete), clamped motions, word-skip semantics, set/clear; display-offset sync (scroll in, pull back, clamp after deletes, wide-glyph columns, zero-width); placeholder + styles + block rendering; `cursor_position` accounting, clamping and block offsets |
+| Markup (M7) | every named color, modifier, hex-3/hex-6 expansion, `on <color>` backgrounds, nesting patch semantics, escape handling, strict errors (unknown token, invalid tag, unterminated region, unopened close) with byte offsets, multi-line independence; `span!`/`line!`/`text!` macro sugar over `Style`/`Color`/`Modifier` |
+| BarChart (M7) | floor-scaled heights, pinned max, clamping, zero-value/no-max no-ops, bar width/gap/group-gap geometry, value text centered above the bar top (skipped at the ceiling or when wider than the bar), custom `text_value`, bar + group label rows reserved only by rendered content, trailing bar/group dropping, style layering chart→group→bar→value, theme mapping (bars = `sparkline` slot, labels = `axis` slot), block wrap, `Widget` pass-through |
+| Tree (M7) | depth-first flattening over the collapsed set, box-drawing guides per level (`│` continuation, `└─`/`├─` connectors), collapsed descendants hidden, navigation over visible nodes (next/previous saturation, first/last), empty-tree selection clearing, minimal scroll for the selection, offset windows, clipping, style layering, highlight, block wrap, `RenderWidget` pass-through, theme mapping (highlight slot) |
 | Widgets | rendered into plain `Buffer`s, compared as strings |
 | Docs | every doc example is a doctest (`cargo test --doc`); panic-hook tests serialize on a dedicated lock so parallel test execution stays deterministic |
 
@@ -337,7 +347,10 @@ pub trait Backend {
   placement benches (`horizontal_20_flex_center`,
   `horizontal_3_flex_space_between`) and paint benches for the new
   widgets (`tabs_8_titles_200x1`, `line_gauge_200x1`,
-  `input_80_chars_200x1`).
+  `input_80_chars_200x1`). M7 adds the markup parser bench
+  (`markup/parse_line_122b_dashboard_header` + a plain-text twin in
+  `tuvix-core/benches/markup.rs`) and paint benches for the new widgets
+  (`bar_chart_2_groups_200x60`, `tree_256_nodes_200x60`).
 - M1 measured the fix: the 16-byte `Symbol` (14-byte inline tier, thin-box
   heap tier, double-box fallback) cut the walk from ~42 to ~8.6 ns/cell
   (80 us -> 15.8 us for the 1920-cell screen). Cell shrank 48 -> 40 bytes.
@@ -369,6 +382,7 @@ pub trait Backend {
 | **M4 — Ecosystem** | persistent-DOM frame journal (O(1) no-op decision), theme system, IPC previews, Windows backend parity, benchmarks-as-CI-gate | **done** |
 | **M5 — Beyond** | OSC 8 hyperlink cell attributes (diff, all renderers, previews), `Constraint::Weight` terminal-weighted layout, structured JSON frame export, platform backends beyond crossterm (`tuvix-backend-ansi` simple, `tuvix-backend-termion` unix) | **done** |
 | **M6 — Composition & interaction** | `Flex` placement pass (Start/End/Center/SpaceBetween/SpaceAround/SpaceEvenly), popup kit (`Rect::centered` + `Clear`), `Tabs`, `LineGauge`, `Input` text field with full editing state; inputs example, flex + widget benches | **done** |
+| **M7 — Data & declarative text** | grouped vertical `BarChart` (bar/value/group labels, style layering, trailing-edge dropping), collapsible `Tree` with path-based selection + fold state, inline markup parser with strict errors + `span!`/`line!`/`text!` macros; data_view example, markup + widget benches, ci.yml push-filter repair, release publish-order repair | **done** |
 
 ## 12. Decision log
 
@@ -446,6 +460,26 @@ pub trait Backend {
   *minimum* gap. Modes that cannot act (a single segment under
   SpaceBetween, any mode once Weight/Fill/Min consumed the budget)
   degenerate to Start instead of inventing behavior.
+- **Markup errors are strict, not silent (M7)** — an unknown token,
+  an unterminated region, a `[/]` with no open region or a `[` that
+  forms no tag all return a `MarkupError` with a byte offset: markup is
+  authored once and reviewed once, so typos must fail loudly instead of
+  rendering literally. `[[` stays the one escape; a lone `]` is literal.
+- **Tree navigation takes the items (M7)** — visibility depends on the
+  fold state, which only the caller's tree plus the state's collapsed
+  set can answer, so `select_next`/`select_previous`/`select_last`
+  accept the item slice instead of hiding a copy of the data inside the
+  state (the same honesty as `ListState::select_last(count)`).
+- **BarChart is vertical-only (M7)** — grouped vertical bars with
+  per-bar values, per-bar labels and per-group labels cover the
+  dashboard use case; a horizontal renderer would duplicate the label
+  layout rather than extend it. Vertical-only keeps the layout rules
+  (floor scaling, trailing-edge dropping, label-row reservation) pinned
+  and one-directional.
+- **Label rows are reserved by rendered content only (M7)** — a bar
+  label or group label that was dropped for width reserves no row, so
+  charts never show an empty label strip above bars that fill the
+  whole height.
 - **Input's cursor is char-indexed, its window is column-exact (M6)** —
   the editing model counts characters (a cursor can never split a
   grapheme), while the display offset syncs on display *columns* so a
