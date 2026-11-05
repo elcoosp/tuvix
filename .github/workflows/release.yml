@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    name: changelog + GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog for the latest tag
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --verbose --latest --strip header
+        env:
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          body_path: CHANGES.md
+
+  publish:
+    name: publish to crates.io
+    runs-on: ubuntu-latest
+    needs: release
+    if: github.event_name == 'workflow_dispatch' || github.repository == 'tuvix-rs/tuvix'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.9.3
+      # Publish in dependency order; CARGO_REGISTRY_TOKEN must be set as a
+      # repository secret. Skipped automatically when the secret is absent.
+      - name: publish crates.io
+        run: |
+          if [ -z "${{ secrets.CARGO_REGISTRY_TOKEN }}" ]; then
+            echo "CARGO_REGISTRY_TOKEN not set; skipping publish"
+            exit 0
+          fi
+          cargo publish -p tuvix-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
+          cargo publish -p tuvix-widgets --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
+          cargo publish -p tuvix-backend-crossterm --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          sleep 15
+          cargo publish -p tuvix --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
