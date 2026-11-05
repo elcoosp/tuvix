@@ -14,6 +14,36 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M9 scorecard (2026-11)
+
+The M9 additions (`tuvix-core/benches/devtools.rs`,
+`tuvix-widgets/benches/widgets.rs` M9 group and the B11 gate in
+`tuvix-core/tests/bench_gates.rs`, criterion 0.8.2, release profile,
+200x60 budget viewport = 12,000 cells, same CI-class sandbox,
+Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `devtools/d1_reconstruct_screen_200x60` | the scrub path: parse a full recorded 200x60 snapshot back into a `Screen` | **~127 us** | pass — "jump to any moment" costs ~1/16 of a 2 ms frame budget; the DevTools story is instant by construction |
+| `devtools/d2_screen_to_buffer_200x60` | paste the reconstructed grid into a live `Buffer` (the inspector path) | **~48 us** | pass |
+| `devtools/d3_screen_diff_200x60` | frame-to-frame diff over the union grid | **~29 us** | pass — ~2.4 ns/cell |
+| `devtools/d4_record_frame_200x60` | `SessionRecorder::on_frame` on top of the snapshot the preview hook already serializes | **~1.2 us** | pass — recording is 0.6% of a 200 us frame |
+| `devtools/d5_session_json_export_100_frames` | the golden-session document for 100 full-screen frames | **~1.3 ms** (~13 us/frame) | pass — an export is one frame's cost per hundred frames |
+| `widgets/frame_inspector_200x60` | the scrub view: bordered box + historical paste + timeline footer over the full budget viewport | **~96 us** | pass |
+| `widgets/screen_reconstruct_200x60` | the same reconstruction from the widgets side | **~91 us** | pass |
+
+The B11 gate (`§8`, DevTools costs) runs the scrub loop and the recorder
+against a real captured 200x60 snapshot:
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B11 scrub p99 over 200 reconstructions @200x60 | <= 2 ms | **~195 us** (median 131 us) | pass — **10x headroom** |
+| B11 recording overhead per frame @200x60 | <= 50 us | **~1.5 us** | pass — **32x headroom** |
+
+M9 adds no cost to the render paths: recording is a preview-hook sink
+off the hot path, and the M0-M8 gates hold unchanged (B2 507 us, B5
+21 ns, B6 125 us, B8 5 ns, B10 p99 ~0.3 ms).
+
 ## M8 scorecard (2026-11)
 
 The M8 additions (`tuvix-core/benches/scheduler.rs` and the B10 gate in
