@@ -14,6 +14,19 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M7 scorecard (2026-11)
+
+The M7 additions (`tuvix-core/benches/markup.rs` and
+`tuvix-widgets/benches/widgets.rs`, criterion 0.8.2, release profile,
+200-wide budget rows, same CI-class sandbox, Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `markup/parse_line_122b_dashboard_header` | 122 B dashboard header: 8 regions, named colors, modifiers, an `on #rrggbb` background, one escape | **~0.85 us** | pass — markup is authored once per string, parsed per render; a full-frame header costs a rounding error next to the ~8.6 ns/cell diff walk |
+| `markup/parse_line_122b_plain_text` | the same 122 B with no tags (the parser's floor) | **~0.28 us** | pass |
+| `widgets/bar_chart_2_groups_200x60` | two labeled groups of three bars, values + labels, into a fresh 200x60 buffer | **~47 us** | pass — ~3.9 ns/cell including the fresh-buffer allocation, inside the B6 budget |
+| `widgets/tree_256_nodes_200x60` | 256-node tree (16 roots x 15 children), one selection, minimal-scroll sync, fresh 200x60 buffer | **~166 us** | pass — flattening 256 nodes dominates; the visible-window paint is a fraction of it |
+
 ## M6 scorecard (2026-11)
 
 The M6 additions (`tuvix-core/benches/layout.rs` and
