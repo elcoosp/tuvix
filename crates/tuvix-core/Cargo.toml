@@ -50,5 +50,9 @@ harness = false
 name = "markup"
 harness = false
 
+[[bench]]
+name = "scheduler"
+harness = false
+
 [lints]
 workspace = true
