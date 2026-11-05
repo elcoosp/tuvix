@@ -52,7 +52,7 @@ jobs:
           echo "## Perf gate report ($(date -u +%FT%TZ))" >> perf-gates-report.txt
           echo "Runner: ubuntu-latest" >> perf-gates-report.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: perf-gates-report
