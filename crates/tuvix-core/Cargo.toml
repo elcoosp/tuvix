@@ -54,5 +54,9 @@ harness = false
 name = "scheduler"
 harness = false
 
+[[bench]]
+name = "devtools"
+harness = false
+
 [lints]
 workspace = true
