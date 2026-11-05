@@ -1,0 +1,15 @@
+[package]
+name = "tuvix-memgate"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Pass-through counting allocator for the tuvix memory gates (test-only)"
+
+[lints.rust]
+# The whole crate is one audited `unsafe impl GlobalAlloc`; see the
+# crate docs for the safety argument. This is the only member that does
+# not inherit the workspace lints, precisely so this allow is scoped to
+# the allocator and nothing else.
+unsafe_code = "allow"
+
+[dependencies]
