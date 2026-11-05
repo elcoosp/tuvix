@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M7 implemented and green. Every design decision
+> Status: M0 through M8 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -22,7 +22,12 @@
 > (unix) backend with its own event reader. M6 ships composition and
 > interaction: the `Flex` placement pass for the solver, the popup kit
 > (`Rect::centered` + `Clear`), and three new widgets — `Tabs`,
-> `LineGauge` and the `Input` text field with a full editing state.
+> `LineGauge` and the `Input` text field with a full editing state. M8
+> ships the differentiator: the cooperative frame scheduler with
+> input-priority ticks and render coalescing, cancellable frames whose
+> abandoned work is discarded rather than committed, and the frame
+> history sink that records every flushed screen for time-travel
+> scrubbing.
 
 ---
 
@@ -383,6 +388,7 @@ pub trait Backend {
 | **M5 — Beyond** | OSC 8 hyperlink cell attributes (diff, all renderers, previews), `Constraint::Weight` terminal-weighted layout, structured JSON frame export, platform backends beyond crossterm (`tuvix-backend-ansi` simple, `tuvix-backend-termion` unix) | **done** |
 | **M6 — Composition & interaction** | `Flex` placement pass (Start/End/Center/SpaceBetween/SpaceAround/SpaceEvenly), popup kit (`Rect::centered` + `Clear`), `Tabs`, `LineGauge`, `Input` text field with full editing state; inputs example, flex + widget benches | **done** |
 | **M7 — Data & declarative text** | grouped vertical `BarChart` (bar/value/group labels, style layering, trailing-edge dropping), collapsible `Tree` with path-based selection + fold state, inline markup parser with strict errors + `span!`/`line!`/`text!` macros; data_view example, markup + widget benches, ci.yml push-filter repair, release publish-order repair | **done** |
+| **M8 — Responsiveness & time-travel** | cooperative `CancellationToken` (monotonic, parent-child), `Terminal::draw_cancellable` / `draw_persistent_cancellable` with stage-boundary checkpoints and discard-not-commit semantics, the `Scheduler` (input-priority ticks, render coalescing, O(1) idle decision), the `HistorySink` time-travel ring over the M4 preview hook; scheduler benches + the B10 input-to-paint gate | **done** |
 
 ## 12. Decision log
 
@@ -489,6 +495,46 @@ pub trait Backend {
   app renders now or later. The terminal cursor itself is not managed
   by the widget: `cursor_position` reports where it belongs and the app
   decides when to show it, mirroring the framework's cursor policy.
+
+### The responsiveness contract (M8)
+
+- **Cancellation is cooperative, at stage boundaries (M8)** — render
+  passes are never interrupted mid-stage: a `CancellationToken` is checked
+  *before* the pass (zero terminal I/O) and *after the paint closure*
+  (before anything is emitted). The diff/draw/flush tail is never
+  abortable: it is the cheap, allocation-free part of the pipeline, and
+  abandoning it after bytes reached the backend would corrupt the raster
+  state. Frame carries the token so widget loops check between widgets —
+  the same place the architecture's §5.7 model puts the boundaries.
+- **Abandoned work is discarded, not committed (M8)** — the whole point
+  of preemption is that the terminal shows exactly what it showed before.
+  Immediate mode resets the paint target to the blank canvas; persistent
+  mode restores the DOM's journaled bands from the reference (the whole
+  buffer when the journal flipped full), so no partial paint leaks into
+  the next frame. The differential tests prove interrupted sequences end
+  byte-identical to uninterrupted ones — wide pairs included.
+- **The scheduler makes input priority a type (M8)** — request_render
+  marks the frame dirty; ticks coalesce any number of requests into at
+  most one frame; and when a render is pending while the probe reports
+  waiting input, the tick yields. The probe is only consulted when there
+  is work to preempt — an idle tick never touches it, which is the
+  static-content budget (§8 gate 6) realized as an O(1) decision
+  (measured at ~0.3 ns). Draining the event queue stays the app's job:
+  the probe reports, it never consumes.
+- **A render once requested is scheduled exactly once (M8)** — a
+  preempted tick leaves the request pending (the input handler will
+  re-render); a cancelled tick consumes it (the frame was abandoned by
+  contract, so re-rendering is the caller's decision). Counters
+  (frames/yields/cancellations) make the loop observable without
+  instrumentation.
+- **The history is a preview sink, not a pipeline stage (M8)** —
+  `HistorySink` rides the M4 preview hook that already serializes every
+  flushed frame; time travel records the *screen the user saw*,
+  byte-identical between the immediate and persistent paths (differential
+  test). It is a bounded ring with drop-oldest semantics and a dropped
+  counter, cloned handles share one ring, and no-op frames are recorded
+  too — quiet frames are part of the story. It stays a cold path: opt-in,
+  off the render critical path, like every preview surface.
 
 ## 13. M1 decisions (2026-11)
 
