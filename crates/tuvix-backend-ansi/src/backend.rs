@@ -24,6 +24,10 @@ use tuvix_core::style::{Color, Hyperlink, Modifier};
 
 /// SGR parameters for a color role: `role` 0 = foreground (39 base),
 /// 1 = background (49), 2 = underline (59).
+///
+/// Named colors are valid SGR codes only for fg/bg (30-37, 90-107); the
+/// underline role selects them through the 256-palette extended selector
+/// (`58;5;0-15`), matching crossterm's `SetUnderlineColor`.
 fn color_params(color: Color, role: u8) -> String {
     let base_default = 39 + u16::from(role) * 10;
     let base = 30 + u16::from(role) * 10;
@@ -36,24 +40,34 @@ fn color_params(color: Color, role: u8) -> String {
     };
     match color {
         Color::Reset => base_default.to_string(),
-        Color::Black => base.to_string(),
-        Color::Red => (base + 1).to_string(),
-        Color::Green => (base + 2).to_string(),
-        Color::Yellow => (base + 3).to_string(),
-        Color::Blue => (base + 4).to_string(),
-        Color::Magenta => (base + 5).to_string(),
-        Color::Cyan => (base + 6).to_string(),
-        Color::Gray => (base + 7).to_string(),
-        Color::DarkGray => bright.to_string(),
-        Color::LightRed => (bright + 1).to_string(),
-        Color::LightGreen => (bright + 2).to_string(),
-        Color::LightYellow => (bright + 3).to_string(),
-        Color::LightBlue => (bright + 4).to_string(),
-        Color::LightMagenta => (bright + 5).to_string(),
-        Color::LightCyan => (bright + 6).to_string(),
-        Color::White => (bright + 7).to_string(),
         Color::Indexed(index) => format!("{set};5;{index}"),
         Color::Rgb { r, g, b } => format!("{set};2;{r};{g};{b}"),
+        Color::Black => named(base, bright, set, role, 0),
+        Color::Red => named(base, bright, set, role, 1),
+        Color::Green => named(base, bright, set, role, 2),
+        Color::Yellow => named(base, bright, set, role, 3),
+        Color::Blue => named(base, bright, set, role, 4),
+        Color::Magenta => named(base, bright, set, role, 5),
+        Color::Cyan => named(base, bright, set, role, 6),
+        Color::Gray => named(base, bright, set, role, 7),
+        Color::DarkGray => named(base, bright, set, role, 8),
+        Color::LightRed => named(base, bright, set, role, 9),
+        Color::LightGreen => named(base, bright, set, role, 10),
+        Color::LightYellow => named(base, bright, set, role, 11),
+        Color::LightBlue => named(base, bright, set, role, 12),
+        Color::LightMagenta => named(base, bright, set, role, 13),
+        Color::LightCyan => named(base, bright, set, role, 14),
+        Color::White => named(base, bright, set, role, 15),
+    }
+}
+
+/// SGR parameters for one of the 16 named colors: the classic 30-37 /
+/// 90-107 codes for fg/bg, `58;5;<palette index>` for underline.
+fn named(base: u16, bright: u16, set: u16, role: u8, index: u16) -> String {
+    match role {
+        2 => format!("{set};5;{index}"),
+        _ if index < 8 => (base + index).to_string(),
+        _ => (bright + index - 8).to_string(),
     }
 }
 
