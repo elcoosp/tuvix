@@ -14,6 +14,35 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M10 scorecard (2026-11)
+
+The M10 additions (`tuvix-core/benches/replay.rs`,
+`tuvix-widgets/benches/widgets.rs` M10 group, the B12 gate in
+`tuvix-core/tests/bench_gates.rs` and the B13 memory gate measured
+through the `tuvix-memgate` counting allocator, criterion 0.8.2,
+release profile, 200x60 budget viewport = 12,000 cells, same CI-class
+sandbox, Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `replay/r1_replay_100_frames_200x60` | the golden loop: 100 recorded full-screen frames (50 events) replayed through a deterministic app — parse + paint + serialize + parse per step | **~47 ms** (~470 us/step) | pass — a full session replay costs a fraction of a second; the regression-test use case is instant by construction |
+| `replay/r2_seed_reconstruct_200x60` | the bounded-window checkpoint: parse the first retained frame back into a live buffer | **~53 us** | pass — "resume from any checkpoint" costs one parse |
+| `widgets/text_area_60_rows_200x60` | the editor paint: 60-line document, window sync per paint, fresh buffer | **~165 us** | pass — inside the B6 budget |
+| `widgets/text_area_type_200_chars` | the editing hot path: 200 chars through `insert` (coalescing undo machinery per keystroke) | **~53 us** | pass — ~266 ns per keystroke including undo bookkeeping |
+
+The new gates:
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B12 replay of 100 recorded frames @200x60 (golden asserted) | <= 300 ms | **~178 ms** (gate app paints a heavier dashboard than the bench) | pass — ~1.8 ms/step, 1.7x headroom; a divergent replay fails the gate naming the frame |
+| B13 persistent pipeline + 60 recorded frames @200x60, live bytes | <= 10 MB | **~2.3 MB** | pass — **4.4x headroom**; the §1 budget table is now fully measured |
+
+M10 adds no cost to the render paths: the clipboard encoder runs only
+when an app calls `set_clipboard`, replay is a cold-path consumer of
+recordings, and the TextArea undo stacks are app state, not pipeline
+state. All M0-M9 gates hold unchanged (B2 507 us, B5 21 ns, B6 125 us,
+B8 5 ns, B10 p99 ~0.3 ms, B11 scrub p99 ~195 us).
+
 ## M9 scorecard (2026-11)
 
 The M9 additions (`tuvix-core/benches/devtools.rs`,
