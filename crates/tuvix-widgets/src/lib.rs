@@ -1,0 +1,42 @@
+//! Batteries-included widgets for the tuvix terminal UI framework.
+//!
+//! M1 added the text pipeline: [`Paragraph`] gains word wrapping
+//! ([`Wrap`], [`wrap_line`]) and scroll state ([`ScrollState`] fed through
+//! [`Paragraph::scroll`]). M3 adds the widget family (Gauge, Sparkline,
+//! List, Table, Scrollbar, Chart, Canvas) unified behind the
+//! [`RenderWidget`](tuvix_core::widget::RenderWidget) contract — implement
+//! it once, get `Widget`/`StatefulWidget` through blanket impls. Widgets
+//! paint into a [`tuvix_core::buffer::Buffer`] and are pure functions of
+//! `(self, area, buffer)` — trivially testable with plain buffers.
+
+pub mod block;
+pub mod canvas;
+pub mod chart;
+pub mod clear;
+pub mod gauge;
+pub mod input;
+pub mod line_gauge;
+pub mod list;
+pub mod marker;
+pub mod paragraph;
+pub mod scrollbar;
+pub mod sparkline;
+pub mod table;
+pub mod tabs;
+
+pub use block::{Block, BorderType, Borders};
+pub use canvas::Canvas;
+// Canvas shapes stay in the `canvas` module: its `Line` would otherwise
+// shadow `tuvix_core::text::Line` in the facade prelude.
+pub use chart::{Axis, Chart, Dataset, GraphType};
+pub use clear::Clear;
+pub use gauge::Gauge;
+pub use input::{Input, InputState};
+pub use line_gauge::LineGauge;
+pub use list::{List, ListItem, ListState};
+pub use marker::Marker;
+pub use paragraph::{Paragraph, ScrollState, Wrap, wrap_line};
+pub use scrollbar::{Scrollbar, ScrollbarOrientation, ScrollbarState};
+pub use sparkline::Sparkline;
+pub use table::{Table, TableCell, TableRow, TableState};
+pub use tabs::Tabs;
