@@ -67,5 +67,9 @@ harness = false
 name = "interaction"
 harness = false
 
+[[bench]]
+name = "embed"
+harness = false
+
 [lints]
 workspace = true
