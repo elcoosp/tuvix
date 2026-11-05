@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M8 implemented and green. Every design decision
+> Status: M0 through M9 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -389,6 +389,7 @@ pub trait Backend {
 | **M6 — Composition & interaction** | `Flex` placement pass (Start/End/Center/SpaceBetween/SpaceAround/SpaceEvenly), popup kit (`Rect::centered` + `Clear`), `Tabs`, `LineGauge`, `Input` text field with full editing state; inputs example, flex + widget benches | **done** |
 | **M7 — Data & declarative text** | grouped vertical `BarChart` (bar/value/group labels, style layering, trailing-edge dropping), collapsible `Tree` with path-based selection + fold state, inline markup parser with strict errors + `span!`/`line!`/`text!` macros; data_view example, markup + widget benches, ci.yml push-filter repair, release publish-order repair | **done** |
 | **M8 — Responsiveness & time-travel** | cooperative `CancellationToken` (monotonic, parent-child), `Terminal::draw_cancellable` / `draw_persistent_cancellable` with stage-boundary checkpoints and discard-not-commit semantics, the `Scheduler` (input-priority ticks, render coalescing, O(1) idle decision), the `HistorySink` time-travel ring over the M4 preview hook; scheduler benches + the B10 input-to-paint gate | **done** |
+| **M9 — Time-travel DevTools** | the `SessionRecorder` timeline (frames + input events on one clock, bounded ring that evicts adjacent input with the oldest frame so replays start from a frame), `Screen` — a strict parser for the canonical ANSI snapshot with byte-offset errors, reconstructing live `Buffer`s that diff and render like the real thing, `FrameInspector` (picture-in-picture scrub view with the dot-bar timeline footer), the session JSON document (zero-dep writer, strict minimal parser, full `Event` vocabulary) and `SessionRecorder::diff` as the golden-session gate; devtools + inspector benches, the B11 scrub-latency gate; snapshot-encoder repairs the parser exposed (mid-row cursor re-addressing for interior blanks, correct `58;5;n` named underline colors in both ANSI encoders) | **done** |
 
 ## 12. Decision log
 
@@ -799,3 +800,42 @@ pub trait Backend {
   transport is loopback, and the snapshot encoder is intentionally simple.
   If a use case outgrows it, the diff encoder already exists as the
   upgrade path.
+
+- **Hyperlink is content in the snapshot encoder (M5), and now so is the
+  cursor (M9).** The M9 parser exposed that interior blank cells wrote no
+  bytes and no cursor motion: playing the snapshot (or parsing it) shifted
+  every later glyph left. `serialize_ansi` now tracks the terminal cursor
+  column and re-addresses with CUP when the grid position drifts — the
+  same discipline the live diff encoders always had. Round-trip identity
+  (`from_ansi(serialize_ansi(buf))` reconstructs the buffer byte-for-byte)
+  is a differential gate, not a claim.
+- **Named underline colors use the extended selector in both encoders
+  (M9).** The snapshot encoder emitted them as bare 50-57/110-117 codes
+  (invalid; they are bg-style codes) and the ansi backend did the same.
+  Both now emit `58;5;0-15`, matching crossterm's `SetUnderlineColor`; the
+  256-palette ambiguity (Indexed(n<16) underline reads back as the named
+  color) is documented and confined to the underline role.
+- **The session timeline pairs frames with input events (M9).** Frames
+  alone (M8's HistorySink) show *what* the screen showed; replay needs
+  *why*. Input recording is explicit — the app calls `record_event` when
+  it handles an event — because only the app knows what it acted on. The
+  bounded ring evicts the oldest frame together with the input events
+  adjacent to it, so a retained timeline always starts with a frame and a
+  replay is well-defined.
+- **Screens are parsed, not re-exported (M9).** Reconstructing a past
+  frame means parsing the canonical snapshot the pipeline already emits —
+  one format, no second encoder to keep in sync, and it works on captures
+  from the preview tap as well as recordings. The parser is strict
+  (byte-offset errors) to pin the format, the same philosophy as the M7
+  markup parser.
+- **Session documents are versioned and strict (M9).** `to_json` is the
+  zero-dependency writer; `from_json` is a minimal strict JSON parser
+  (objects, arrays, standard escapes incl. surrogate pairs, u64 numbers)
+  that rejects unknown event types, key codes and entry kinds with byte
+  offsets. Hand-edited logs fail loudly instead of replaying silently
+  wrong; timestamps truncate to milliseconds, making exports
+  re-serialization-identical.
+- **The golden session is a diff, not a snapshot assertion (M9).**
+  `SessionRecorder::diff` compares frames by absolute number and events by
+  position, so a regression names the frame that changed — CI prints the
+  culprit instead of a wall of bytes.
