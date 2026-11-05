@@ -63,5 +63,9 @@ harness = false
 name = "replay"
 harness = false
 
+[[bench]]
+name = "interaction"
+harness = false
+
 [lints]
 workspace = true
