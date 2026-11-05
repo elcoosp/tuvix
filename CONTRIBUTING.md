@@ -29,7 +29,12 @@ quality bar high with a small set of non-negotiable rules.
 ## Rules of the codebase
 
 - **`#![forbid(unsafe_code)]`** workspace-wide. If perf ever requires unsafe,
-  bring the decision to the decision log first.
+  bring the decision to the decision log first. The one exception is
+  `tuvix-memgate` — a dev-only, `publish = false` member housing the B13
+  counting allocator, whose `unsafe impl GlobalAlloc` is a verbatim
+  delegation to the system allocator with a documented safety argument;
+  it deliberately does not inherit the workspace lints so the allow is
+  scoped to that one impl.
 - **No `unwrap`/`expect` in library code paths** (tests are fine).
 - **Every public item is documented** (`missing_docs` is warn → CI denies
   warnings). Doc examples must be doctests.
