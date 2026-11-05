@@ -676,6 +676,15 @@ impl<B: Backend> Terminal<B> {
         Ok(())
     }
 
+    /// Asks the terminal to put `contents` on the system clipboard (OSC
+    /// 52). The request is written straight through to the backend — the
+    /// terminal may ignore it or prompt; there is no readback. Fails with
+    /// the backend's error when the payload exceeds the OSC 52 cap (see
+    /// [`crate::clipboard`]).
+    pub fn set_clipboard(&mut self, contents: &str) -> Result<(), B::Error> {
+        self.backend.set_clipboard(contents)
+    }
+
     /// Hides the cursor (memoized: a no-op when already hidden).
     pub fn hide_cursor(&mut self) -> Result<(), B::Error> {
         if !self.hidden_cursor {
