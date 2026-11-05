@@ -4,12 +4,19 @@
 //! recorded in docs/BENCHMARKS.md. Deterministic gates (B9) live in the
 //! backend crate where the ANSI encoder is available.
 
+use std::cell::RefCell;
+use std::hint::black_box;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use tuvix_core::backend::TestBackend;
 use tuvix_core::buffer::Buffer;
+use tuvix_core::cancellation::CancellationToken;
+use tuvix_core::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use tuvix_core::geometry::{Rect, Size};
 use tuvix_core::layout::{Constraint, Layout};
+use tuvix_core::runtime::queue::event_channel;
+use tuvix_core::scheduler::{Scheduler, TickOutcome};
 use tuvix_core::style::{Color, Style};
 use tuvix_core::terminal::Terminal;
 
@@ -165,4 +172,71 @@ fn b8_journal_noop_frame_within_budget() {
         "B8 journal gate failed: {per_frame:?} per no-op frame (budget 50 us)"
     );
     println!("B8 journal gate: {per_frame:?} per no-op frame (200x60, journal path)");
+}
+
+#[test]
+#[ignore = "timing gate: run with `cargo test --release --ignored` and record in docs/BENCHMARKS.md"]
+fn b10_input_to_paint_p99_within_eight_milliseconds() {
+    // The architecture's gate 5 (§8): 10,000 keystrokes under continuous
+    // animation, input-to-paint p99 <= 8 ms. One keystroke = one event
+    // through the channel, drained by the scheduler loop, coalesced into
+    // one animated frame (a 20-row band repaints every keystroke at the
+    // 200x60 budget viewport).
+    const KEYSTROKES: usize = 10_000;
+
+    let (sender, stream) = event_channel();
+    let stream = Rc::new(RefCell::new(stream));
+    let terminal = Terminal::new_persistent(TestBackend::new(Size::new(WIDTH, HEIGHT))).unwrap();
+    let mut scheduler = Scheduler::new(terminal);
+
+    let probe_stream = Rc::clone(&stream);
+    scheduler.set_probe(move || !probe_stream.borrow().is_empty());
+
+    // Steady state: paint once so every measured frame is a real
+    // banded diff against a full screen, not a blank canvas.
+    scheduler.request_render();
+    let outcome = scheduler.tick(|frame| animate(frame, 0)).unwrap();
+    assert_eq!(outcome, TickOutcome::Rendered);
+
+    let mut latencies = Vec::with_capacity(KEYSTROKES);
+    for keystroke in 0..KEYSTROKES {
+        let code = KeyCode::Char(char::from_u32(65 + (keystroke % 26) as u32).unwrap_or('a'));
+        assert!(sender.send(Event::Key(KeyEvent::new(code, KeyModifiers::empty()))));
+
+        // Input-to-paint: from "the event is queued" to "the frame is
+        // flushed" — the latency a user experiences per keystroke.
+        let start = Instant::now();
+        while let Some(event) = stream.borrow_mut().try_next() {
+            black_box(event);
+        }
+        scheduler.request_render();
+        let step = keystroke as u64;
+        let outcome = scheduler
+            .tick_cancellable(&CancellationToken::new(), |frame| animate(frame, step))
+            .unwrap();
+        assert_eq!(outcome, TickOutcome::Rendered, "keystroke {keystroke}");
+        latencies.push(start.elapsed());
+    }
+
+    latencies.sort_unstable();
+    let p99 = latencies[KEYSTROKES * 99 / 100 - 1];
+    let max = latencies[KEYSTROKES - 1];
+    assert!(
+        p99 <= Duration::from_millis(8),
+        "B10 gate failed: input-to-paint p99 {p99:?} (budget 8 ms)"
+    );
+    println!(
+        "B10 gate: input-to-paint p99 {p99:?}, max {max:?} over {KEYSTROKES} keystrokes @ {WIDTH}x{HEIGHT} (budget 8 ms)"
+    );
+}
+
+/// The animation under the B10 gate: a header plus a 20-row band that
+/// changes on every keystroke (persistent DOM, banded diff).
+fn animate(frame: &mut tuvix_core::terminal::Frame<'_>, tick: u64) {
+    let header = format!("B10 input-to-paint tick {tick}");
+    frame.buffer.set_string(0, 0, header.as_str(), Style::new());
+    for row in 1..21 {
+        let band = format!("row {row:02}: the quick brown fox jumps over the lazy dog {tick}");
+        frame.buffer.set_string(0, row, band.as_str(), Style::new());
+    }
 }
