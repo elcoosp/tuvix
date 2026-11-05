@@ -14,6 +14,31 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M11 scorecard (2026-11)
+
+The M11 additions (`tuvix-core/benches/interaction.rs`,
+`tuvix-widgets/benches/scrollable.rs` and the B14 gate in
+`tuvix-widgets/tests/m11_interaction.rs`, criterion 0.8.2, release
+profile, 200x60 budget viewport = 12,000 cells, same CI-class sandbox,
+Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `interaction/keymap_single_key_step` | one bound key through the trie root (a dashboard map with 4 singles and 2 chords bound) | **~8 ns** | pass — a resolved keystroke costs a rounding error next to the ~295 us B10 input-to-paint p99 |
+| `interaction/keymap_chord_prefix_step` | the chord walk, averaged over the two steps of `g g` (open the prefix, complete and reset) | **~10 ns** | pass — chords are free; the matcher keeps its position between events |
+| `interaction/keymap_miss_step` | an unbound key scanning the root's six siblings | **~14 ns** | pass — the worst root case is still two orders of magnitude below a frame |
+| `interaction/focus_cycle_8_fields` | one wrap-around advance over an 8-field ring | **~0.7 ns** | pass — focus routing is an index increment |
+| `scrollable/first_paint_400_rows_200x60` | the one-time cost: the child paints its full 400-row content into the fresh scratch surface, the top window blits | **~1.9 ms** | pass — paid once per invalidation, not per frame; the child's own paint dominates |
+| `scrollable/scrolled_repaint_400_rows_200x60` | the B14 cost: a scroll step over warm cache — window move + blit only | **~166 us** | pass — **7% of the B2 steady-frame budget**; a scroll storm costs the window, never the content |
+| `scrollable/invalidated_repaint_400_rows_200x60` | an app-paid content change: invalidate + child repaint + blit | **~1.45 ms** | pass — the child's 400-row paint dominates; the viewport adds only the blit |
+| `scrollable/scrolled_repaint_with_scrollbar_200x60` | the B14 blit with an attached scrollbar (viewport shrunk by one column) | **~168 us** | pass — the scrollbar paint is noise |
+
+Gate:
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B14 viewport scroll step @200x60 over 400 content rows, p99 over 200 frames | <= 1 ms | **~206 us** (median 157 us, max 306 us — every frame allocates its fresh output buffer) | pass — **4.8x headroom**; scrolling can never push a frame over the B2 line by itself |
+
 ## M10 scorecard (2026-11)
 
 The M10 additions (`tuvix-core/benches/replay.rs`,
