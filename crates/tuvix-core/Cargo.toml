@@ -75,5 +75,9 @@ harness = false
 name = "motion"
 harness = false
 
+[[bench]]
+name = "mouse"
+harness = false
+
 [lints]
 workspace = true
