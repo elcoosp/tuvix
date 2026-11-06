@@ -19,6 +19,9 @@ impl Position {
     pub const fn new(x: u16, y: u16) -> Self {
         Self { x, y }
     }
+
+    /// The origin cell.
+    pub const ZERO: Self = Self { x: 0, y: 0 };
 }
 
 impl fmt::Display for Position {
