@@ -155,6 +155,48 @@
 //! assert!(!animator.is_idle(), "a gauge is still moving");
 //! ```
 //!
+//! # Mouse depth: hit-testing, gestures, declarative bindings (M14)
+//!
+//! The mouse gets the same treatment the keyboard got in M11: a
+//! [`HitMap`](hit::HitMap) resolves "what did the user click?" the way the frame was
+//! painted (topmost registration wins), a
+//! [`GestureRecognizer`](gesture::GestureRecognizer) classifies raw events into clicks (with
+//! multiplicity), drags (anchored at their origin) and scrolls on an
+//! injected clock, and a [`MouseMap`](mousemap::MouseMap) routes the results to commands —
+//! later bindings shadowing earlier ones, the painter's algorithm again:
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use tuvix::prelude::*;
+//!
+//! #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+//! enum Command { FocusLog, ScrollLog, Pin }
+//!
+//! let mut map = MouseMap::new();
+//! map.bind(MousePattern::anywhere(MouseClass::Scroll), Command::ScrollLog);
+//! map.bind(MousePattern::on("log", MouseClass::Click), Command::FocusLog);
+//! map.bind(MousePattern::on("log", MouseClass::DoubleClick), Command::Pin);
+//!
+//! // Classify the raw event, resolve through the frame's hit map.
+//! let mut gestures = GestureRecognizer::new(GestureConfig::default());
+//! let down = MouseEvent {
+//!     kind: MouseEventKind::Down(MouseButton::Left),
+//!     column: 3,
+//!     row: 3,
+//!     modifiers: KeyModifiers::empty(),
+//! };
+//! let up = MouseEvent { kind: MouseEventKind::Up(MouseButton::Left), ..down };
+//! let _ = gestures.feed(down, Duration::ZERO);
+//! let click = gestures.feed(up, Duration::from_millis(40)).unwrap();
+//!
+//! let mut hits: HitMap<&str> = HitMap::new();
+//! hits.push("log", Rect::new(0, 0, 20, 8));
+//! let hit = hits.hit_test(anchor(&click));
+//! assert_eq!(map.resolve(hit, &click), Some(Command::FocusLog));
+//! assert_eq!(map.resolve(None, &click), None);
+//! ```
+//!
 //! See `docs/ARCHITECTURE.md` in the repository for the full design and
 //! `examples/hello.rs` / `examples/devtools.rs` for runnable apps.
 
@@ -171,9 +213,9 @@ pub use tuvix_ffi as ffi;
 // `text` is imported above with the `line`/`span` macros: one `use`
 // brings the module and the macro namespaces in together.
 pub use tuvix_core::{
-    anim, backend, buffer, cancellation, clipboard, damage, embed, event, focus, geometry, journal,
-    keymap, layout, preview, replay, scheduler, screen, session, style, stylize, terminal, theme,
-    widget,
+    anim, backend, buffer, cancellation, clipboard, damage, embed, event, focus, geometry, gesture,
+    hit, journal, keymap, layout, markup, mousemap, preview, replay, scheduler, screen, session,
+    style, stylize, terminal, theme, widget,
 };
 pub use tuvix_widgets::{
     Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Clear, Dataset,
@@ -206,12 +248,20 @@ pub mod prelude {
         Mutation, MutationReader, PacketError, PacketErrorKind, PacketWriter, decode_snapshot,
         encode_snapshot, parse_packets,
     };
-    pub use tuvix_core::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    pub use tuvix_core::event::{
+        Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
+        MouseEventKind,
+    };
     pub use tuvix_core::focus::FocusRing;
     pub use tuvix_core::geometry::{Position, Rect, Size};
+    pub use tuvix_core::gesture::{Gesture, GestureConfig, GestureRecognizer, ScrollKind};
+    pub use tuvix_core::hit::{Hit, HitMap};
     pub use tuvix_core::keymap::{KeyPattern, Keymap, KeymapOutcome};
     pub use tuvix_core::layout::{Constraint, Flex, Layout};
     pub use tuvix_core::markup::{MarkupError, parse_line, parse_spans, parse_text};
+    pub use tuvix_core::mousemap::{
+        ButtonPattern, MouseClass, MouseMap, MousePattern, MouseTarget, anchor,
+    };
     pub use tuvix_core::preview::HistorySink;
     pub use tuvix_core::replay::{ReplayMismatch, ReplayReport, ReplayStep, SessionReplay};
     pub use tuvix_core::runtime::input::{InputMode, InputStack, KittyEnhancementFlags};
