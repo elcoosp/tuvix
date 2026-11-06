@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0](https://github.com/tuvix-rs/tuvix/compare/v0.13.0...v0.14.0) - 2026-11-05
+### Added
+- M13 the motion layer — the clock owns the value
+- M13 prelude wiring and the animation example
+### Documentation
+- M13 architecture decisions, benchmark scorecard and readme
+### Performance
+- M13 the motion benches — the fleet under measurement
+
 ## [0.13.0](https://github.com/tuvix-rs/tuvix/compare/v0.12.0...v0.13.0) - 2026-11-05
 ### Added
 - M12-A the mutation packet — a flat, versioned binary protocol for buffer mutations
