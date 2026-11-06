@@ -12,6 +12,7 @@
 //!
 //! See `docs/ARCHITECTURE.md` in the repository for the full design.
 
+pub mod anim;
 pub mod backend;
 pub mod buffer;
 pub mod cancellation;
