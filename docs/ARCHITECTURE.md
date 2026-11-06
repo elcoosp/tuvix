@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M12 implemented and green. Every design decision
+> Status: M0 through M14 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -48,6 +48,12 @@
 > integers and `Color`, and the keyed `Animator` whose O(1) `is_idle`
 > decision stops the loop when nothing moves (B16: 1,000 concurrent
 > tweens advance in ~5.7 us against a 1 ms frame budget).
+> M14 ships the mouse depth: the pointer gets what the keyboard got in
+> M11 — the `HitMap` click surface resolved by the painter's algorithm,
+> the `GestureRecognizer` click/drag classification on an injected
+> clock, and the declarative `MouseMap` router whose later bindings
+> shadow earlier ones (B17: a click resolves through a 1,000-region map
+> in ~765 ns).
 
 ---
 
@@ -423,6 +429,7 @@ pub trait Backend {
 | **M11 — Interaction depth** | `Scrollable` — the viewport widget (any `RenderWidget` behind a scroll window: cached child paint in the state, explicit invalidation, offset clamping, wide-glyph clip/snap honesty, optional attached `Scrollbar`, mouse-wheel mapping), `FocusRing` — focus routing as a type over the app's own pane enum (wrap-around advance/retreat, lookup by value or index, explicit unfocus), `Keymap` — the declarative binding trie (single keys and multi-key chords, subset modifier semantics, press-only matching, `Pending`/`Matched`/`Miss` outcomes), the B14 viewport-scroll gate; the `interaction` benches and the `interaction` example | **done** |
 | **M12 — The embedding boundary** | the flat, versioned `TVX` mutation packet (`Mutation`, `PacketWriter`, strict streaming `MutationReader` with byte-offset errors), `Mutation::apply` with the `Buffer`'s exact clip semantics, the outbound frame snapshot (`encode_snapshot`/`decode_snapshot`, `decode(encode(buf)) == buf` differential gate), `tuvix-ffi` — the C ABI (audited unsafe, `tuvix.h` shipped, capacity negotiation, pinned result codes) closing the §7 crate layout, the B15 FFI-throughput gate closing the §8 budget table; the `embed` benches and the `embed` example | **done** |
 | **M13 — Motion** | the animation layer: clamped `Progress` on the clock, the 16-curve `Easing` catalog pinned to an independent reference (endpoints exact, `OutBack`/`OutElastic` overshoot preserved), frame-rate-independent `Tween` with delay/repeat/alternate semantics and the one boundary rule, `Interpolate` for floats, integers and `Color` (RGB blends per channel, discrete colors snap), the keyed `Animator` with sorted finish reports, pinned rest values and the O(1) `is_idle` static-CPU decision; the `animation` example, the motion benches and the B16 1,000-tween gate | **done** |
+| **M14 — Mouse depth** | the pointer layer: the `HitMap` click surface (paint-order z-order, local coordinates, `push_clipped` with the buffer's clip discipline), the `GestureRecognizer` (clicks counted release-to-release on an injected clock, drags anchored at their origin with same-cell wobble ignored, scroll/move pass-through), the declarative `MouseMap` (`MousePattern`/`MouseClass`/`ButtonPattern`, later bindings shadow earlier ones, drags resolve against their origin, stateless `Option<C>` resolution), the `anchor` helper; the `mouse` example, the mouse benches and the B17 mouse-decision gate | **done** |
 
 ## 12. Decision log
 
@@ -1074,3 +1081,68 @@ pub trait Backend {
   the working end: 1,000 concurrent tweens advance in ~5.7 us — 54x
   headroom under the 1 ms worst-tick budget — so motion is a rounding
   error next to the B2 frame it rides on.
+
+---
+
+## 21. M14 decisions (2026-11)
+
+- **The mouse layer is three pure types, not a widget system.** The
+  `HitMap` is a `Vec` of `(id, Rect)` pairs, the `GestureRecognizer` is
+  a four-field state machine, the `MouseMap` is a flat binding list —
+  none of them touch the terminal, the event loop or the widget tree.
+  The app registers regions while it paints (a `push` next to every
+  render call), feeds raw mouse events through the recognizer on its own
+  clock, and resolves the result. Widgets stay key-agnostic and now
+  mouse-agnostic: no trait gained a mouse hook, no widget state learned
+  about buttons, and the M11 honesty (`FocusRing` is a type over the
+  app's own panes) repeats — the `HitMap` is a type over the app's own
+  region ids.
+- **One rule for the whole mouse layer: the painter's algorithm.** The
+  `HitMap` resolves a click to the *last registered* region containing
+  it — the one that painted on top — and the `MouseMap` resolves a
+  gesture to the *latest bound* pattern matching it. One mental model,
+  pinned by the same-shaped tests: rebinding is reprioritizing, painting
+  later is clicking first. The app registers bottom-to-top exactly as it
+  renders bottom-to-top, so hit-testing cannot disagree with what the
+  user sees.
+- **The clock is injected; clicks count release-to-release.** The
+  recognizer never reads a clock (the M13 discipline repeated): the app
+  feeds `Instant::now()` deltas, tests feed scripted durations, and a
+  double click is a pure function of the stream — same button, same
+  cell, released within the interval of the previous release. Cell
+  granularity is honest at the terminal: positions are cells, so a
+  "double click" is two releases on one cell, and a held button that
+  moves to a *different* cell has started a drag — same-cell wobble
+  never does.
+- **Drags belong to their origin; drops are the app's business.** A
+  drag reports its press origin in every gesture, and the `MouseMap`
+  resolves drag classes against the origin's region — the pointer
+  wandering off the panel must not unbind the drag. Where the drag
+  *lands* is a different question about a different position: the app
+  resolves the `DragEnd` landing cell itself (the `anchor` helper names
+  which position each gesture is resolved against — origin for drags,
+  pointer for everything else).
+- **Unmatched input is ignored, not invented.** A release with no press,
+  a drag with no button held, an `Up` for the wrong button — the
+  recognizer answers `None` instead of guessing (terminals start
+  reporting mid-press; SGR mouse modes can drop a nibble). A second
+  `Down` replaces the active press and abandons any drag: out-of-order
+  terminals degrade to the newest truth instead of wedging the
+  classifier.
+- **Stateless resolution is the point.** The `Keymap` needs a matcher
+  because keys accumulate into chords; a gesture is atomic, so the
+  `MouseMap` resolves in one call and returns `Option<C>` — no
+  `Pending`, no reset discipline, the same answer every time. The
+  click-family classes are exact on purpose: `Click` is `clicks == 1`,
+  `DoubleClick` is `clicks == 2`, and `AnyClick` is the catch-all — no
+  implicit triple-click class, because the honest 90% needs three names,
+  not five.
+- **B17 closes the mouse budget before there is a mouse budget.** A
+  click resolves through a 1,000-region hit map plus a 32-binding mouse
+  map in ~765 ns (a reverse rect scan with an early exit, measured
+  against a 20 us ceiling — 26x headroom), and one event classifies in
+  ~8 ns (125x under the 1 us event ceiling). A dense dashboard can
+  register every tile it paints and still decide a click in under a
+  microsecond; the per-frame registration of that same map costs ~2.7 us
+  (M2), so the whole pointer layer stays a rounding error next to the
+  B2 frame it rides on.
