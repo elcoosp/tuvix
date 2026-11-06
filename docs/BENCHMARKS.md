@@ -14,6 +14,25 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M13 scorecard (2026-11)
+
+The M13 additions (`tuvix-core/benches/motion.rs`, the B16 gate in
+`tuvix-core/tests/m13_motion.rs`, criterion 0.8.2, release profile,
+same CI-class sandbox, Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `motion/a1_ease_out_elastic` | one eased evaluation — the priciest curve, paid once per animated element per frame | **~9.3 ns** | pass |
+| `motion/a2_ease_out_bounce` | the piecewise bounce, the second-costliest shape | **~3.6 ns** | pass |
+| `motion/a3_animator_advance_1000_tweens_16ms` | the B16 shape: 1,000 infinite alternating tweens advanced one 16 ms tick | **~5.7 us** (176.5 Melem/s — ~5.7 ns per tween per tick) | pass |
+| `motion/a4_tween_value_read` | one value read on a warm tween — what every animated widget pays to style itself | **~17 ns** | pass — a full 16-bar easing gallery costs a rounding error next to the ~150 us dashboard paint |
+
+Gate:
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B16 1,000 concurrent tweens advance in one frame tick (600-frame run, 10 s infinite alternating tweens, OutCubic) | worst advance <= 1 ms | **worst 18.4 us, mean 5.9 us** | pass — **54x headroom**; motion is noise next to the B2 frame it rides on, and `is_idle` makes the cost exactly zero once everything settles |
+
 ## M12 scorecard (2026-11)
 
 The M12 additions (`tuvix-core/benches/embed.rs`, the B15 gate in
