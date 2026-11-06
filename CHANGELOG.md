@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/tuvix-rs/tuvix/compare/v0.14.0...v0.15.0) - 2026-11-06
+### Added
+- M14-A the hit map — the click surface resolved by the painter's algorithm
+- M14-B the gesture recognizer — clicks, drags and scrolls on an injected clock
+- M14-C the mouse map — declarative mouse bindings, the keymap's pointer twin
+- M14 prelude wiring, the mouse event types and the mouse example
+### Documentation
+- M14 architecture decisions, benchmark scorecard and readme
+### Performance
+- M14 the mouse benches — the pointer layer under measurement (B17: 765 ns per decision)
+
 ## [0.14.0](https://github.com/tuvix-rs/tuvix/compare/v0.13.0...v0.14.0) - 2026-11-05
 ### Added
 - M13 the motion layer — the clock owns the value
