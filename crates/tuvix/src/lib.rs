@@ -132,6 +132,29 @@
 //! assert!(session.diff(&imported).is_empty());
 //! ```
 //!
+//! # Motion: time-driven animation (M13)
+//!
+//! Values travel on the clock, not on the tick counter — the same
+//! elapsed time renders identically at 5 fps and 60 fps — and the
+//! [`Animator`](anim::Animator) keeps the static-CPU budget honest: when
+//! nothing moves,
+//! `is_idle()` says so and the app stops scheduling frames:
+//!
+//! ```
+//! use std::time::Duration;
+//!
+//! use tuvix::prelude::*;
+//!
+//! let mut animator = Animator::new();
+//! animator.start(
+//!     "gauge",
+//!     Tween::new(0.0_f64, 100.0, Duration::from_secs(1)).easing(Easing::OutCubic),
+//! );
+//! animator.advance(Duration::from_millis(250));
+//! assert!((animator.value(&"gauge").unwrap() - 57.8125).abs() < 1e-9);
+//! assert!(!animator.is_idle(), "a gauge is still moving");
+//! ```
+//!
 //! See `docs/ARCHITECTURE.md` in the repository for the full design and
 //! `examples/hello.rs` / `examples/devtools.rs` for runnable apps.
 
@@ -148,7 +171,7 @@ pub use tuvix_ffi as ffi;
 // `text` is imported above with the `line`/`span` macros: one `use`
 // brings the module and the macro namespaces in together.
 pub use tuvix_core::{
-    backend, buffer, cancellation, clipboard, damage, embed, event, focus, geometry, journal,
+    anim, backend, buffer, cancellation, clipboard, damage, embed, event, focus, geometry, journal,
     keymap, layout, preview, replay, scheduler, screen, session, style, stylize, terminal, theme,
     widget,
 };
@@ -172,6 +195,7 @@ pub mod prelude {
     pub use tuvix_backend_crossterm::CrosstermBackend;
     #[cfg(unix)]
     pub use tuvix_backend_termion::TermionBackend;
+    pub use tuvix_core::anim::{Animator, Easing, Interpolate, Progress, Repeat, Tween};
     pub use tuvix_core::backend::{Backend, ClearRegion, TestBackend};
     pub use tuvix_core::buffer::{Buffer, Cell, DiffRun, Symbol};
     pub use tuvix_core::cancellation::{CancellationToken, Cancelled};
