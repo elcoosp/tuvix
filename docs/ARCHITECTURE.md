@@ -41,6 +41,13 @@
 > mechanism), the applier and the outbound frame snapshot, and the
 > `tuvix-ffi` C ABI whose B15 gate measures the §8 budget table's one
 > never-measured row: FFI mutation throughput.
+> M13 ships the motion layer: the clock owns the value — clamped
+> `Progress`, a 16-curve easing catalog pinned to an independently
+> computed reference, frame-rate-independent `Tween`s with
+> delay/repeat/alternate semantics, `Interpolate` over floats,
+> integers and `Color`, and the keyed `Animator` whose O(1) `is_idle`
+> decision stops the loop when nothing moves (B16: 1,000 concurrent
+> tweens advance in ~5.7 us against a 1 ms frame budget).
 
 ---
 
@@ -415,6 +422,7 @@ pub trait Backend {
 | **M10 — Applications: editing, replay & clipboard** | `TextArea` — the multi-line editor (char-indexed cursor, goal column, column-exact window sync, bounded op-based undo/redo with coalescing groups), `SessionReplay` — the golden loop replaying a recorded session through a deterministic app with the seed checkpoint for bounded rings and frame-precise divergence reports, the write-only OSC 52 clipboard (`Backend::set_clipboard`, in-house RFC 4648, 64 KiB cap, raster-state neutral), the B12 replay gate and the B13 memory gate closing the §1 budget table | **done** |
 | **M11 — Interaction depth** | `Scrollable` — the viewport widget (any `RenderWidget` behind a scroll window: cached child paint in the state, explicit invalidation, offset clamping, wide-glyph clip/snap honesty, optional attached `Scrollbar`, mouse-wheel mapping), `FocusRing` — focus routing as a type over the app's own pane enum (wrap-around advance/retreat, lookup by value or index, explicit unfocus), `Keymap` — the declarative binding trie (single keys and multi-key chords, subset modifier semantics, press-only matching, `Pending`/`Matched`/`Miss` outcomes), the B14 viewport-scroll gate; the `interaction` benches and the `interaction` example | **done** |
 | **M12 — The embedding boundary** | the flat, versioned `TVX` mutation packet (`Mutation`, `PacketWriter`, strict streaming `MutationReader` with byte-offset errors), `Mutation::apply` with the `Buffer`'s exact clip semantics, the outbound frame snapshot (`encode_snapshot`/`decode_snapshot`, `decode(encode(buf)) == buf` differential gate), `tuvix-ffi` — the C ABI (audited unsafe, `tuvix.h` shipped, capacity negotiation, pinned result codes) closing the §7 crate layout, the B15 FFI-throughput gate closing the §8 budget table; the `embed` benches and the `embed` example | **done** |
+| **M13 — Motion** | the animation layer: clamped `Progress` on the clock, the 16-curve `Easing` catalog pinned to an independent reference (endpoints exact, `OutBack`/`OutElastic` overshoot preserved), frame-rate-independent `Tween` with delay/repeat/alternate semantics and the one boundary rule, `Interpolate` for floats, integers and `Color` (RGB blends per channel, discrete colors snap), the keyed `Animator` with sorted finish reports, pinned rest values and the O(1) `is_idle` static-CPU decision; the `animation` example, the motion benches and the B16 1,000-tween gate | **done** |
 
 ## 12. Decision log
 
@@ -1014,3 +1022,55 @@ pub trait Backend {
   asserts the budget; the measured 9.3M mutations/sec (108 ns per
   mutation, parse included) leaves 185x headroom, and the batching is
   the point: the per-call overhead amortizes to noise at batch size.
+
+
+---
+
+## 20. M13 decisions (2026-11)
+
+- **The clock owns the value, not the tick count.** A `Tween`'s value is
+  a pure function of the accumulated `Duration`: advancing one 400 ms
+  jump and 400 one-ms slices land bit-identical, and the differential
+  test pins it. A render loop's cadence is none of the tween's business —
+  that is what makes an animation correct at 5 fps and at 144.
+- **`Progress` is the clamped time domain; the eased coefficient may
+  overshoot.** `Progress::new` clamps into [0, 1] and `NaN` becomes
+  zero — a broken clock reads as "not started", never as undefined
+  behavior downstream. `Easing::ease`, though, returns `f64`:
+  `OutBack` overshoots to 1.10 and `OutElastic` to ~1.37 on purpose,
+  and `Interpolate` implementations must stay well-defined beyond the
+  unit interval (integer and channel casts saturate; RGB channels clamp
+  at the rails). Clamping at the curve's output would have silently
+  deleted the two overshooting curves' entire personality.
+- **Endpoints are contracts; closed forms are not.** The catalog is
+  pinned at p = 0.25 / 0.5 / 0.75 against a reference computed
+  independently (the easings.net formulas, evaluated in Python before
+  the Rust existed), and both endpoints are exact for every curve —
+  which costs guarded early-returns where float arithmetic evaluates
+  the closed form to 2.2e-16 (`OutBack` at zero) and buys the animator
+  rest positions that need no easing at all.
+- **One boundary rule for every schedule.** Exactly on a cycle boundary
+  a tween reads as the *end of the previous cycle*: play-once tweens
+  rest at `to`, alternate tweens stay continuous at every bounce apex,
+  exhausted `Count(n)` rests where its last cycle ended, and infinite
+  loops sample the apex before wrapping. Alternate's reverse cycle plays
+  the same curve backwards (`ease(1 - raw)`), so the motion is literally
+  the forward motion reversed, not a different curve.
+- **`Interpolate` is honest about what has no in-between.** RGB colors
+  blend per channel; the ANSI palette and indexed entries snap at the
+  midpoint — a fade never invents a color the terminal cannot render.
+  Integers round half-away-from-zero (direction-agnostic: both
+  directions of the midpoint land on the same integer) and saturate at
+  the type's bounds, which is also what makes overshooting coefficients
+  safe.
+- **The idle decision is the static-CPU budget as a type.**
+  `Animator::is_idle` is a counter, not a scan — the O(1) decision shape
+  of the M4 journal's no-op frame and the M8 scheduler's idle tick.
+  Finished tweens stay pinned: readable at their rest value, never
+  re-reported by `advance`, until replaced or cancelled. An app that
+  ticks only while `!is_idle()` burns nothing on settled UIs; the
+  `animation` example's loop literally swaps its 16 ms frame poll for a
+  120 ms input poll the moment the engine goes idle, and B16 measures
+  the working end: 1,000 concurrent tweens advance in ~5.7 us — 54x
+  headroom under the 1 ms worst-tick budget — so motion is a rounding
+  error next to the B2 frame it rides on.
