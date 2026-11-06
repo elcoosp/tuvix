@@ -14,6 +14,24 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M14 scorecard (2026-11)
+
+The M14 additions (`tuvix-core/benches/mouse.rs`, the B17 gate in
+`tuvix-core/tests/m14_mouse.rs`, criterion 0.8.2, release profile,
+same CI-class sandbox, Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `mouse/m1_mouse_decision_1000_regions_32_bindings` | the whole per-click cost outside app handlers: one hit-test over a 1,000-region map plus one `MouseMap` resolution | **~1.06 us** | pass |
+| `mouse/m2_hit_map_register_1000_regions` | per-frame hit-map construction: 1,000 region pushes (what a dense dashboard pays to rebuild the click surface every frame) | **~2.59 us** (~2.6 ns per region) | pass |
+| `mouse/m3_gesture_recognize_release` | one event classified: the recognizer state machine fed a release that completes a click | **~8.7 ns** | pass |
+
+Gate:
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B17 mouse decision: hit-test + resolve through a 1,000-region hit map and a 32-binding mouse map; a 1,000-event click stream classified | decision <= 20 us, event <= 1 us | **decision 765 ns, event 8 ns** | pass — **26x** and **125x headroom**; the pointer layer stays a rounding error next to the B2 frame it rides on |
+
 ## M13 scorecard (2026-11)
 
 The M13 additions (`tuvix-core/benches/motion.rs`, the B16 gate in
