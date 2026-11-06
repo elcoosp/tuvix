@@ -71,5 +71,9 @@ harness = false
 name = "embed"
 harness = false
 
+[[bench]]
+name = "motion"
+harness = false
+
 [lints]
 workspace = true
