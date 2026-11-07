@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- M15-A Checkbox — a single-row boolean control with a state-bearing marker glyph
+- M15-B RadioGroup — an exclusive-choice list with one highlight
+- M15-C Switch — a knob-in-a-track on/off control
+- M15-D Select + SelectState — a dropdown whose open/highlight/commit state is a plain data structure
+- M15 prelude wiring, the facade doctest and the `forms` example
+### Documentation
+- M15 architecture decisions, benchmark scorecard and readme
+### Performance
+- M15 the form benches — the selection family under measurement (B18: the settings panel repaints in a median ~84 us at 200x60, ~8x under the gate)
+
 ## [0.15.0](https://github.com/tuvix-rs/tuvix/compare/v0.14.0...v0.15.0) - 2026-11-06
 ### Added
 - M14-A the hit map — the click surface resolved by the painter's algorithm
