@@ -78,7 +78,7 @@ Paste it into a new crate (or run the full version with `cargo run -p tuvix --ex
 
 - **Input preempts render.** The cooperative scheduler in tuvix-core coalesces render requests into one frame, probes for waiting keystrokes, and discards an abandoned pass instead of committing it; the yield decision costs ~2.0 ns and an idle tick ~0.33 ns (`docs/BENCHMARKS.md`, M8 gates).
 - **Three backends behind one contract.** crossterm for cross-platform mode control (Linux, macOS, Windows), termion for unix, and a zero-dependency ANSI engine over any `Write` target — all with persistent raster state, cursor economy and EL elision, plus a backend-agnostic event model.
-- **The widget set ships in the box.** Paragraph, List, Table, Tabs, Tree, Chart, BarChart, Canvas, Gauge, LineGauge, Sparkline, Scrollbar, Scrollable, Input, TextArea (exact coalescing undo/redo) and Clear — one `RenderWidget` contract for stateful widgets, one `.theme(&Theme)` builder per widget, `NO_COLOR` honored everywhere.
+- **The widget set ships in the box.** Paragraph, List, Table, Tabs, Tree, Chart, BarChart, Canvas, Gauge, LineGauge, Sparkline, Scrollbar, Scrollable, Input, TextArea (exact coalescing undo/redo), Checkbox, RadioGroup, Switch, Select and Clear — one `RenderWidget` contract for stateful widgets, one `.theme(&Theme)` builder per widget, `NO_COLOR` honored everywhere.
 - **Time-travel tooling built in.** A `SessionRecorder` timeline of frames and input events, `Screen` snapshot reconstruction, a `FrameInspector` scrub overlay, JSON golden sessions, and `SessionReplay` — the loop that replays a recorded session through your app and names the frame that diverged. A TCP preview tap lets you watch a live app from another terminal.
 - **Async events without an async runtime.** The event stream is std-only and speaks the standard waker protocol, so tokio, smol, async-std or a 30-line hand-rolled `block_on` (`crates/tuvix/examples/async_events.rs`) all await it.
 - **A C embedding boundary.** Hosts drive the screen with one flat, versioned `TVX` mutation packet per frame — strict byte-offset errors, all-or-nothing apply, snapshot read-back — through the `tuvix-ffi` C ABI (`tuvix.h` ships with the crate); the B15 gate measures ~9.3M mutations/sec across the raw ABI.
@@ -113,6 +113,7 @@ cargo run -p tuvix --example widgets         # gauge, sparkline, chart, list and
 cargo run -p tuvix --example inputs          # tabs, a text field and a popup
 cargo run -p tuvix --example data_view       # bar chart, tree and the markup parser
 cargo run -p tuvix --example interaction     # scrollable viewport, focus ring, keymap chords
+cargo run -p tuvix --example forms           # checkboxes, radio group, switch and the select dropdown
 cargo run -p tuvix --example notes           # TextArea editing with a golden replay on exit
 cargo run -p tuvix --example devtools        # record, scrub, inspect, export sessions
 cargo run -p tuvix --example preview         # watch the app from another terminal
@@ -131,11 +132,11 @@ The design document — principles, pipeline, layout solver, event model, testin
 ## Status
 
 > [!NOTE]
-> tuvix is pre-1.0 (v0.15.0), developed milestone-by-milestone with the architecture doc tracking M0 through M14 as implemented. Per [`docs/PLATFORMS.md`](docs/PLATFORMS.md): the crossterm backend covers Linux, macOS and Windows (conhost and Windows Terminal); the termion backend is unix-only; the ANSI backend writes to any `Write` target. Unix-socket previews are unix-only (TCP previews work on all three), and OSC 8 hyperlinks and the OSC 52 clipboard degrade gracefully where a terminal does not support them. CI exercises the full suite and doctests natively on all three operating systems, plus a Rust 1.88 MSRV job.
+> tuvix is pre-1.0 (v0.15.0), developed milestone-by-milestone with the architecture doc tracking M0 through M15 as implemented. Per [`docs/PLATFORMS.md`](docs/PLATFORMS.md): the crossterm backend covers Linux, macOS and Windows (conhost and Windows Terminal); the termion backend is unix-only; the ANSI backend writes to any `Write` target. Unix-socket previews are unix-only (TCP previews work on all three), and OSC 8 hyperlinks and the OSC 52 clipboard degrade gracefully where a terminal does not support them. CI exercises the full suite and doctests natively on all three operating systems, plus a Rust 1.88 MSRV job.
 
 ## Learn more
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the full design: principles, rendering pipeline, backend contract, decision log
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) — criterion baselines and the timing gates enforced on a weekly CI schedule
 - [`docs/PLATFORMS.md`](docs/PLATFORMS.md) — the platform support matrix
-- [`crates/tuvix/examples/`](crates/tuvix/examples/) — fourteen runnable apps, from the hello loop to the embedding boundary
+- [`crates/tuvix/examples/`](crates/tuvix/examples/) — fifteen runnable apps, from the hello loop to the embedding boundary
