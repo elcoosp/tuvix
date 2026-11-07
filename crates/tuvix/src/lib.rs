@@ -197,8 +197,33 @@
 //! assert_eq!(map.resolve(None, &click), None);
 //! ```
 //!
+//! # Forms & selection: the choice controls (M15)
+//!
+//! The selection family closes the widget set: a [`Checkbox`], a
+//! [`RadioGroup`], a [`Switch`] and a [`Select`] dropdown whose open,
+//! highlight and commit state lives in [`SelectState`] — the app drives
+//! it with events, the widgets only paint:
+//!
+//! ```
+//! use tuvix::prelude::*;
+//!
+//! let mut buffer = Buffer::empty(Rect::new(0, 0, 30, 3));
+//! Widget::render(Checkbox::new("auto-save").checked(true), Rect::new(0, 0, 30, 1), &mut buffer);
+//! Widget::render(Switch::new("dark mode").on(false), Rect::new(0, 1, 30, 1), &mut buffer);
+//!
+//! let mut state = SelectState::new();
+//! state.open();
+//! state.select_next(3);
+//! assert_eq!(state.choose(), Some(1), "choose commits and closes");
+//! Select::new(["eu-west", "eu-north", "us-east"])
+//!     .label("region")
+//!     .render(Rect::new(0, 2, 30, 1), &mut buffer, &mut state);
+//! assert!(buffer.to_string().contains("region: eu-north"));
+//! ```
+//!
 //! See `docs/ARCHITECTURE.md` in the repository for the full design and
-//! `examples/hello.rs` / `examples/devtools.rs` for runnable apps.
+//! `examples/hello.rs`, `examples/devtools.rs` and `examples/forms.rs`
+//! for runnable apps.
 
 pub use tuvix_backend_ansi as backend_ansi;
 pub use tuvix_backend_ansi::AnsiBackend;
@@ -218,11 +243,12 @@ pub use tuvix_core::{
     style, stylize, terminal, theme, widget,
 };
 pub use tuvix_widgets::{
-    Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Clear, Dataset,
-    FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem, ListState,
-    Marker, Paragraph, ScrollState, Scrollable, Scrollbar, ScrollbarOrientation, ScrollbarState,
-    Sparkline, Table, TableCell, TableRow, TableState, Tabs, TextArea, TextAreaState, Tree,
-    TreeItem, TreeState, ViewportState, Wrap, wrap_line,
+    Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Checkbox, Clear,
+    Dataset, FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem,
+    ListState, Marker, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
+    ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Switch, Table, TableCell,
+    TableRow, TableState, Tabs, TextArea, TextAreaState, Tree, TreeItem, TreeState, ViewportState,
+    Wrap, wrap_line,
 };
 
 pub mod runtime;
@@ -282,10 +308,11 @@ pub mod prelude {
     pub use tuvix_core::widget::{RenderWidget, StatefulWidget, Widget};
     pub use tuvix_core::{line, span, text};
     pub use tuvix_widgets::{
-        Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Clear, Dataset,
-        FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem, ListState,
-        Marker, Paragraph, ScrollState, Scrollable, Scrollbar, ScrollbarOrientation,
-        ScrollbarState, Sparkline, Table, TableCell, TableRow, TableState, Tabs, TextArea,
-        TextAreaState, Tree, TreeItem, TreeState, ViewportState, Wrap, wrap_line,
+        Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Checkbox, Clear,
+        Dataset, FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem,
+        ListState, Marker, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Switch, Table,
+        TableCell, TableRow, TableState, Tabs, TextArea, TextAreaState, Tree, TreeItem, TreeState,
+        ViewportState, Wrap, wrap_line,
     };
 }
