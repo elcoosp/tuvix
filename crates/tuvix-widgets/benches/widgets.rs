@@ -10,9 +10,10 @@ use tuvix_core::layout::{Constraint, Layout};
 use tuvix_core::style::{Color, Style};
 use tuvix_core::widget::{RenderWidget, Widget};
 use tuvix_widgets::{
-    Axis, Bar, BarChart, BarGroup, Block, Chart, Dataset, Gauge, GraphType, Input, InputState,
-    LineGauge, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState,
-    Sparkline, Table, TableRow, TableState, Tabs, Tree, TreeItem, TreeState,
+    Axis, Bar, BarChart, BarGroup, Block, Chart, Checkbox, Dataset, Gauge, GraphType, Input,
+    InputState, LineGauge, List, ListItem, ListState, RadioGroup, Scrollbar, ScrollbarOrientation,
+    ScrollbarState, Select, SelectState, Sparkline, Switch, Table, TableRow, TableState, Tabs,
+    Tree, TreeItem, TreeState,
 };
 
 /// The architecture budget viewport: 200x60.
@@ -436,6 +437,147 @@ fn bench_widgets_m10(c: &mut Criterion) {
     group.finish();
 }
 
+/// M15: the form family — one-row controls, the open dropdown, and the
+/// B18 form-panel gate.
+fn bench_widgets_m15(c: &mut Criterion) {
+    let mut group = c.benchmark_group("widgets");
+    group.throughput(Throughput::Elements(u64::from(WIDTH) * u64::from(HEIGHT)));
+
+    group.bench_function("checkbox_200x1", |b| {
+        let checkbox = Checkbox::new("auto-save every edit").checked(true);
+        b.iter(|| {
+            let mut buffer = Buffer::empty(Rect::new(0, 0, WIDTH, 1));
+            Widget::render(
+                black_box(checkbox.clone()),
+                black_box(Rect::new(0, 0, WIDTH, 1)),
+                &mut buffer,
+            );
+        });
+    });
+
+    group.bench_function("radio_8_items_200x8", |b| {
+        let group_items: Vec<String> = (0..8).map(|index| format!("option {index}")).collect();
+        let radio = RadioGroup::new(group_items).select(Some(3));
+        b.iter(|| {
+            let mut buffer = Buffer::empty(Rect::new(0, 0, WIDTH, 8));
+            Widget::render(
+                black_box(radio.clone()),
+                black_box(Rect::new(0, 0, WIDTH, 8)),
+                &mut buffer,
+            );
+        });
+    });
+
+    group.bench_function("switch_200x1", |b| {
+        let switch = Switch::new("dark mode").on(true);
+        b.iter(|| {
+            let mut buffer = Buffer::empty(Rect::new(0, 0, WIDTH, 1));
+            Widget::render(
+                black_box(switch.clone()),
+                black_box(Rect::new(0, 0, WIDTH, 1)),
+                &mut buffer,
+            );
+        });
+    });
+
+    group.bench_function("select_closed_200x1", |b| {
+        let options: Vec<String> = (0..16).map(|index| format!("region-{index}")).collect();
+        let select = Select::new(options).label("region");
+        let mut state = SelectState::new().with_selected(Some(2));
+        b.iter(|| {
+            let mut buffer = Buffer::empty(Rect::new(0, 0, WIDTH, 1));
+            RenderWidget::render(
+                black_box(select.clone()),
+                black_box(Rect::new(0, 0, WIDTH, 1)),
+                &mut buffer,
+                &mut state,
+            );
+        });
+    });
+
+    group.bench_function("select_open_16_options_200x17", |b| {
+        let options: Vec<String> = (0..16).map(|index| format!("region-{index}")).collect();
+        let select = Select::new(options).label("region");
+        let mut state = SelectState::new().with_selected(Some(2));
+        state.open();
+        state.select_next(16);
+        b.iter(|| {
+            let mut buffer = Buffer::empty(Rect::new(0, 0, WIDTH, 17));
+            RenderWidget::render(
+                black_box(select.clone()),
+                black_box(Rect::new(0, 0, WIDTH, 17)),
+                &mut buffer,
+                &mut state,
+            );
+        });
+    });
+
+    group.finish();
+}
+
+/// M15 gate: the B18 form panel — the full settings screen the m15 gate
+/// times — as a criterion measurement next to the m3 dashboard gate.
+fn bench_gates_m15(c: &mut Criterion) {
+    let mut group = c.benchmark_group("gates");
+    group.throughput(Throughput::Elements(u64::from(WIDTH) * u64::from(HEIGHT)));
+
+    group.bench_function("m15_form_panel_paint_200x60", |b| {
+        let mut select_state = SelectState::new().with_selected(Some(2));
+        b.iter(|| {
+            let mut buffer = Buffer::empty(Rect::new(0, 0, WIDTH, HEIGHT));
+            let area = Rect::new(0, 0, WIDTH, 24);
+            let block = Block::bordered().title("settings");
+            block.clone().render(area, &mut buffer);
+            let inner = block.inner(area);
+            let [
+                auto_save,
+                telemetry,
+                protocol,
+                mode,
+                dark_mode,
+                region,
+                _rest,
+            ] = Layout::vertical([
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(5),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Min(0),
+            ])
+            .areas(&inner);
+
+            Widget::render(
+                Checkbox::new("auto-save every edit").checked(true),
+                auto_save,
+                &mut buffer,
+            );
+            Widget::render(
+                Checkbox::new("share anonymous telemetry"),
+                telemetry,
+                &mut buffer,
+            );
+            Widget::render(
+                RadioGroup::new(["rsa", "ed25519", "hybrid"])
+                    .select(Some(1))
+                    .block(Block::bordered().title("protocol")),
+                protocol,
+                &mut buffer,
+            );
+            Widget::render(Switch::new("dark mode").on(true), mode, &mut buffer);
+            Widget::render(Switch::new("spell check"), dark_mode, &mut buffer);
+            let select = Select::new(["eu-west", "eu-north", "us-east", "ap-south"])
+                .label("region")
+                .placeholder("pick one");
+            RenderWidget::render(select, region, &mut buffer, &mut select_state);
+            buffer
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_widgets_bars,
@@ -445,6 +587,8 @@ criterion_group!(
     bench_widgets_m7,
     bench_widgets_m9,
     bench_widgets_m10,
-    bench_widget_suite
+    bench_widgets_m15,
+    bench_widget_suite,
+    bench_gates_m15
 );
 criterion_main!(benches);
