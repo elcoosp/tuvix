@@ -14,6 +14,27 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M15 scorecard (2026-11)
+
+The M15 additions (`tuvix-widgets/benches/widgets.rs` M15 entries, the
+B18 gate in `tuvix-widgets/tests/m15_forms.rs`, criterion 0.8.2, release
+profile, same CI-class sandbox, Rust 1.99.1).
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `widgets/checkbox_200x1` | one checkbox row: marker glyph, space, label, style patch | **~1.6 us** | pass |
+| `widgets/switch_200x1` | one switch row: label plus the four-cell knob track | **~1.3 us** | pass |
+| `widgets/select_closed_200x1` | the trigger row: label, committed value, indicator | **~2.6 us** | pass |
+| `widgets/radio_8_items_200x8` | an eight-option exclusive-choice list, one highlight | **~9.7 us** | pass |
+| `widgets/select_open_16_options_200x17` | the open dropdown: trigger plus sixteen option rows, one highlighted | **~19 us** | pass |
+| `gates/m15_form_panel_paint_200x60` | the B18 settings panel: bordered form, two checkboxes, a radio group, two switches, a select trigger | **~91 us** | pass |
+
+Gate:
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B18 form-panel paint: the 24-row settings form (checkboxes, radio group, switches, select trigger) repaints into a fresh 200x60 buffer, 300-frame run | p99 <= 1 ms | **median 83.9 us, p99 123 us, max 154 us** | pass — **~8x headroom**; the whole selection family is a rounding error next to the 2 ms B2 frame it rides in, the same half-of-B2 line B14 draws for a scroll storm |
+
 ## M14 scorecard (2026-11)
 
 The M14 additions (`tuvix-core/benches/mouse.rs`, the B17 gate in
