@@ -54,6 +54,12 @@
 > clock, and the declarative `MouseMap` router whose later bindings
 > shadow earlier ones (B17: a click resolves through a 1,000-region map
 > in ~765 ns).
+> M15 ships the form family: the selection controls the ecosystem
+> leaves to third-party crates — `Checkbox`, `RadioGroup`, `Switch` and
+> the `Select` dropdown whose open/highlight/commit state is a plain
+> data structure (`SelectState`) — theme-mapped through the existing
+> slots and zero new dependencies (B18: the 24-row settings panel
+> repaints at 200x60 in a median ~84 us, ~8x under the 1 ms gate).
 
 ---
 
@@ -129,6 +135,13 @@
     that scrolls minimally in *columns* (wide glyphs included), and a
     `cursor_position` the app feeds to `Frame::set_cursor_position` —
     the terminal cursor stays under the application's control.
+13. **The in-tree form family (M15)** — `Checkbox`, `RadioGroup`,
+    `Switch` and `Select`+`SelectState` ship the choice controls the
+    ecosystem also leaves to third-party crates, one level up from the
+    M6 precedent: pure paint functions over app-owned state, theme
+    mapping through the existing thirteen slots, and the dropdown's
+    open/highlight/commit machinery as a plain data structure
+    (`select_next(count)` takes the option count — the M7 tree honesty).
 
 ## 2. Principles
 
@@ -171,6 +184,8 @@ tuvix/
 │   │   │                        # M6: Clear, Tabs, LineGauge, Input(+InputState)
 │   │   │                        # M7: BarChart(+Bar/BarGroup), Tree(+TreeItem/
 │   │   │                        # TreeState)
+│   │   │                        # M15: Checkbox, RadioGroup, Switch,
+│   │   │                        # Select(+SelectState)
 │   ├── tuvix-backend-crossterm/  # ANSI renderer + event bridge + reader
 │   │   └── deps: crossterm 0.29
 │   ├── tuvix-backend-ansi/       # M5: the dependency-free ANSI renderer
@@ -360,6 +375,7 @@ pub trait Backend {
 | Markup (M7) | every named color, modifier, hex-3/hex-6 expansion, `on <color>` backgrounds, nesting patch semantics, escape handling, strict errors (unknown token, invalid tag, unterminated region, unopened close) with byte offsets, multi-line independence; `span!`/`line!`/`text!` macro sugar over `Style`/`Color`/`Modifier` |
 | BarChart (M7) | floor-scaled heights, pinned max, clamping, zero-value/no-max no-ops, bar width/gap/group-gap geometry, value text centered above the bar top (skipped at the ceiling or when wider than the bar), custom `text_value`, bar + group label rows reserved only by rendered content, trailing bar/group dropping, style layering chart→group→bar→value, theme mapping (bars = `sparkline` slot, labels = `axis` slot), block wrap, `Widget` pass-through |
 | Tree (M7) | depth-first flattening over the collapsed set, box-drawing guides per level (`│` continuation, `└─`/`├─` connectors), collapsed descendants hidden, navigation over visible nodes (next/previous saturation, first/last), empty-tree selection clearing, minimal scroll for the selection, offset windows, clipping, style layering, highlight, block wrap, `RenderWidget` pass-through, theme mapping (highlight slot) |
+| Forms (M15) | per-widget unit tests pinning marker glyphs and widths, style patching (checked = accent, selected = highlight, off-track = muted), first-row discipline, clipping, block wrap, theme slots; `SelectState` state machine (open re-syncs the highlight, `select_next(count)` clamps at the count, `choose` commits only when open, dismissal forgets navigation, out-of-range paints nothing); `tests/m15_forms.rs` gates the family through `Terminal` + `TestBackend`: the settings panel, the choice flow end to end, a keyboard-session-vs-direct-selection differential, theme mapping across all four widgets, wide-glyph pair honesty, and the B18 form-panel paint gate |
 | Widgets | rendered into plain `Buffer`s, compared as strings |
 | Docs | every doc example is a doctest (`cargo test --doc`); panic-hook tests serialize on a dedicated lock so parallel test execution stays deterministic |
 
@@ -387,7 +403,11 @@ pub trait Backend {
   (`text_area_60_rows_200x60`, `text_area_type_200_chars`), the B12
   replay gate (100 recorded frames, golden + 300 ms) and the B13 memory
   gate (§1's last unmeasured row) measured through the `tuvix-memgate`
-  counting allocator.
+  counting allocator. M15 adds the form-family paint benches
+  (`checkbox_200x1`, `radio_8_items_200x8`, `switch_200x1`,
+  `select_closed_200x1`, `select_open_16_options_200x17`), the
+  `gates/m15_form_panel_paint_200x60` gate bench and the B18 form-panel
+  paint gate (a 24-row settings screen inside 1 ms p99 — the B14 line).
 - M1 measured the fix: the 16-byte `Symbol` (14-byte inline tier, thin-box
   heap tier, double-box fallback) cut the walk from ~42 to ~8.6 ns/cell
   (80 us -> 15.8 us for the 1920-cell screen). Cell shrank 48 -> 40 bytes.
@@ -430,6 +450,7 @@ pub trait Backend {
 | **M12 — The embedding boundary** | the flat, versioned `TVX` mutation packet (`Mutation`, `PacketWriter`, strict streaming `MutationReader` with byte-offset errors), `Mutation::apply` with the `Buffer`'s exact clip semantics, the outbound frame snapshot (`encode_snapshot`/`decode_snapshot`, `decode(encode(buf)) == buf` differential gate), `tuvix-ffi` — the C ABI (audited unsafe, `tuvix.h` shipped, capacity negotiation, pinned result codes) closing the §7 crate layout, the B15 FFI-throughput gate closing the §8 budget table; the `embed` benches and the `embed` example | **done** |
 | **M13 — Motion** | the animation layer: clamped `Progress` on the clock, the 16-curve `Easing` catalog pinned to an independent reference (endpoints exact, `OutBack`/`OutElastic` overshoot preserved), frame-rate-independent `Tween` with delay/repeat/alternate semantics and the one boundary rule, `Interpolate` for floats, integers and `Color` (RGB blends per channel, discrete colors snap), the keyed `Animator` with sorted finish reports, pinned rest values and the O(1) `is_idle` static-CPU decision; the `animation` example, the motion benches and the B16 1,000-tween gate | **done** |
 | **M14 — Mouse depth** | the pointer layer: the `HitMap` click surface (paint-order z-order, local coordinates, `push_clipped` with the buffer's clip discipline), the `GestureRecognizer` (clicks counted release-to-release on an injected clock, drags anchored at their origin with same-cell wobble ignored, scroll/move pass-through), the declarative `MouseMap` (`MousePattern`/`MouseClass`/`ButtonPattern`, later bindings shadow earlier ones, drags resolve against their origin, stateless `Option<C>` resolution), the `anchor` helper; the `mouse` example, the mouse benches and the B17 mouse-decision gate | **done** |
+| **M15 — Forms & selection** | the selection family: `Checkbox` (state-bearing marker glyph, checked-style patch), `RadioGroup` (one highlight per group, out-of-range renders none), `Switch` (knob-in-a-track), `Select` + `SelectState` (open/highlight/commit as a data structure — navigation takes the option count, `choose` commits and closes, dismissal forgets), theme mapping through the existing slots, zero new dependencies; the `forms` example, the form benches and the B18 form-panel paint gate | **done** |
 
 ## 12. Decision log
 
@@ -1146,3 +1167,46 @@ pub trait Backend {
   microsecond; the per-frame registration of that same map costs ~2.7 us
   (M2), so the whole pointer layer stays a rounding error next to the
   B2 frame it rides on.
+
+---
+
+## 22. M15 decisions (2026-11)
+
+- **The family is four paint functions, not a form engine.** Checkbox,
+  RadioGroup, Switch and Select stay pure functions of `(self, area,
+  buf)` over app-owned data — the M14 discipline held one more layer
+  down: no widget gained focus awareness, no control learned about
+  events. Composition is the app's `FocusRing`/`Keymap`/`MouseMap`
+  wiring (the `forms` example is the recipe), because a form
+  coordinator would be a layout policy wearing a widget costume.
+- **State glyphs carry the semantics; styles carry the emphasis.** The
+  ballot boxes (`☐`/`☑`), the radio markers (`○`/`◉`), the knob track
+  (`[ ●]`/`[● ]`) and the dropdown indicators (`▾`/`▴`) are
+  width-pinned by tests — every glyph is EAW-neutral or ambiguous
+  (width 1 under unicode-width), so the row math stays integer-simple
+  and the state reads through a monochrome terminal. Emphasis is style
+  patching over the existing thirteen slots — checked = `accent`,
+  selected radio = `highlight`, off-track = `muted` — no theme rework.
+- **Navigation takes the count; choose commits.** `SelectState` is the
+  M6 `Input` honesty applied to choices: `select_next(count)` accepts
+  the option count instead of hiding a copy (the M7 tree rule), `open()`
+  re-syncs the highlight to the committed selection so a dismissed
+  dropdown forgets its wandering, and `choose()` is the only commit
+  path — it returns `Option<usize>` and a closed dropdown selects
+  nothing. The renderer never writes the state: an out-of-range
+  highlight paints no row, and the trigger's out-of-range selection
+  paints an empty value that never falls back to the placeholder.
+- **The dropdown paints inside its area, honestly.** No floating
+  window, no global layer: the option list renders one row below the
+  trigger and clips at the area like every other paint — an open select
+  in a one-row area shows only the trigger. Apps that want a floating
+  dropdown hand the widget a popup area (the M6 `Rect::centered` +
+  `Clear` kit); the `forms` example grows the row instead, which is
+  what immediate mode makes cheap.
+- **B18 draws the B14 line for the family.** A 24-row settings screen
+  repaints inside 1 ms p99 — half the B2 steady-frame budget, the same
+  envelope a scroll storm gets. Measured through the m15 gate (median
+  ~84 us, p99 ~123 us over 300 frames) and the
+  `gates/m15_form_panel_paint_200x60` criterion bench (~91 us): the
+  four controls together cost a rounding error against the frame they
+  ride in.
