@@ -35,5 +35,9 @@ harness = false
 name = "layers"
 harness = false
 
+[[bench]]
+name = "dropdown"
+harness = false
+
 [lints]
 workspace = true
