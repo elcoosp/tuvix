@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M14 implemented and green. Every design decision
+> Status: M0 through M17 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -60,6 +60,22 @@
 > data structure (`SelectState`) — theme-mapped through the existing
 > slots and zero new dependencies (B18: the 24-row settings panel
 > repaints at 200x60 in a median ~84 us, ~8x under the 1 ms gate).
+> M16 ships the floating surfaces: `place` — the flip-then-clamp
+> geometry a popup needs (the preferred side, the mirror side when the
+> edge is near, the nearest host edge when neither fits) — and
+> `Overlay`, the erase-then-paint compositor whose clear repairs the
+> wide-glyph pairs the surface straddles (B19: a 16-option dropdown
+> composites over a 200x60 dashboard in a median ~91 us, ~8x under the
+> gate).
+> M17 closes the loop M15 left open: the floating dropdown as a
+> first-class composite — `dropdown_rows` sizes the surface at the
+> roomiest gap so `place`'s ladder always opens,
+> `SelectState::visible_window` scrolls the option list minimally with
+> the highlight (navigation never points at an option that renders
+> nowhere), and `Select::render_options` paints the visible window
+> into the placed surface (B20: a 100-option scrolling dropdown
+> composites over a 200x60 dashboard in a median ~115 us, ~6x under
+> the gate).
 
 ---
 
@@ -452,6 +468,7 @@ pub trait Backend {
 | **M14 — Mouse depth** | the pointer layer: the `HitMap` click surface (paint-order z-order, local coordinates, `push_clipped` with the buffer's clip discipline), the `GestureRecognizer` (clicks counted release-to-release on an injected clock, drags anchored at their origin with same-cell wobble ignored, scroll/move pass-through), the declarative `MouseMap` (`MousePattern`/`MouseClass`/`ButtonPattern`, later bindings shadow earlier ones, drags resolve against their origin, stateless `Option<C>` resolution), the `anchor` helper; the `mouse` example, the mouse benches and the B17 mouse-decision gate | **done** |
 | **M15 — Forms & selection** | the selection family: `Checkbox` (state-bearing marker glyph, checked-style patch), `RadioGroup` (one highlight per group, out-of-range renders none), `Switch` (knob-in-a-track), `Select` + `SelectState` (open/highlight/commit as a data structure — navigation takes the option count, `choose` commits and closes, dismissal forgets), theme mapping through the existing slots, zero new dependencies; the `forms` example, the form benches and the B18 form-panel paint gate | **done** |
 | **M16 — Floating surfaces** | the layer module: `Placement` (`Below`/`Above`/`Centered`/`At`) and `place` — the flip-then-clamp geometry a popup needs (preferred side, mirror side when the edge is near, nearest host edge when neither fits; size never shrinks except `Centered`, which keeps the exact M6 `Rect::centered` rule; the rect never starts outside its host; total at every `u16` corner through `u32` math), `Overlay` — the erase-then-paint compositor (the buffer's pair-repairing clear, stateful passthrough, z-order is paint order); the `layers` example, the layer benches and the B19 floating-dropdown composite gate | **done** |
+| **M17 — The floating dropdown** | the M15×M16 convergence: `dropdown_rows` — the sizing half of the placement decision (content rows capped by the roomiest of the two gaps, zero content zero rows, a one-row floor for non-empty content, total at the `u16` corners), `SelectState::visible_window` — the pure, List-parity scroll window derived from the highlight (the highlight is always a member; an out-of-range highlight still derives a window inside the options), `Select::render_options` — the surface half of the dropdown as a paint function sharing the inline renderer's painter; the `layers` example rewired to the real composite (no hand-rolled `List`), the dropdown benches and the B20 scrolling-composite gate | **done** |
 
 ## 12. Decision log
 
@@ -1253,3 +1270,55 @@ pub trait Backend {
   same half-of-B2 envelope B14 draws for a scroll storm and B18 for a
   form panel. The floating surface is a rounding error against the
   frame it covers.
+
+---
+
+## 24. M17 decisions (2026-11)
+
+- **The dropdown is a composite, not a widget re-roll.** M15 closed
+  with the honest limitation and M16 shipped the primitives; the seam
+  between them was still app work — the B19 bench and even the
+  `layers` example faked the option list with a disconnected `List`
+  whose default state showed no highlight at all, then re-rendered the
+  trigger by hand. M17 names the two missing halves: `dropdown_rows`
+  (the size) and `Select::render_options` (the surface half), so the
+  recipe is size, place, overlay, paint — three calls, one state.
+- **Sizing is a function next to `place`, not a policy inside it.**
+  `place` answers where a surface of a given size goes; it cannot
+  answer how many rows a dropdown should request. `dropdown_rows`
+  caps the content at the roomiest of the two gaps (below the anchor,
+  above it), so the flip ladder always receives a size one of its
+  paths can open: when the content fits neither side, the cap equals
+  the roomier side and `place` flips there exactly. Zero content
+  requests zero rows; non-empty content floors at one — the caller
+  decides not to open, the sizing never hides the want. The app's own
+  chrome (a block's borders) rides on top; when it pushes the surface
+  past both gaps, `place`'s documented least-surprise fallback covers
+  the trigger, by design.
+- **The window is a pure query, because the renderer never writes the
+  state.** `ListState` keeps a mutable offset the renderer scrolls;
+  `SelectState` derives `visible_window(count, visible)` from the
+  highlight — the same minimal-scroll discipline with no hidden scroll
+  history: navigating away and back answers with the same rows,
+  `open()`'s highlight sync brings the window back to the committed
+  selection, and a verbatim out-of-range highlight (which paints no
+  row, the M15 honesty) still derives a window inside the real
+  options. The invariant is the milestone's integration gate: walk the
+  highlight through every option, recomposite per step, and the
+  highlighted option is always one of the rows on screen — the fix
+  for the M15 gap where `select_next(count)` could point at an option
+  the area clipped into nowhere.
+- **The inline renderer gets the window for free.** One
+  `paint_options` serves both halves: the inline list scrolls its
+  window at the area's clip instead of painting options from the top
+  until the rows run out, and the floating surface paints its window
+  into the placed rect. The M15 pins hold byte-for-byte while the
+  highlight stays inside the top window — the new behavior only shows
+  where the old one lied (a highlight past the clip).
+- **B20 measures the honest long list.** B19's 16-option dropdown fit
+  its window without scrolling; B20 opens 100 options whose window
+  scrolls with the highlight — sizing, placement, erase and the
+  windowed paint in one frame. Median ~115 us, p99 ~164 us over 300
+  frames at 200x60 — the same half-of-B2 envelope B18 and B19 draw,
+  ~6x under the 1 ms gate; the L4 bench pins the sizing decision at
+  ~5 ns, the same class as the L1–L3 placements.
