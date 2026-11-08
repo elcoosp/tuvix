@@ -5,3 +5,6 @@ Cargo.lock.bak
 .idea/
 .vscode/
 *.swp
+
+# local release-prep script (never ships)
+ship.sh
