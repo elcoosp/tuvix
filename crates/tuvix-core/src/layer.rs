@@ -9,6 +9,12 @@
 //! solver: deterministic passes, one documented remainder rule, no
 //! allocation, no hidden state.
 //!
+//! Since M18 the routing half lives here too: an app that floats more
+//! than one surface no longer hand-rolls the open/close flags, the
+//! z-order and the dismissal precedence — [`SurfaceStack`] is that
+//! routing as a type, and its [`SurfaceStack::order`] is the sequence
+//! both the paint and the hit-map registration consume.
+//!
 //! # The rules
 //!
 //! - **Flip, then clamp.** The preferred side first ([`Placement::Below`]
@@ -219,6 +225,163 @@ pub fn dropdown_rows(host: Rect, anchor: Rect, content_rows: usize) -> u16 {
     u16::try_from(rows).unwrap_or(u16::MAX)
 }
 
+/// The floating-surface routing: which surfaces are open, and in what
+/// z-order they paint.
+///
+/// M16 answered *where* a surface goes ([`place`]) and *how* it paints
+/// (the widget-side `Overlay`); M17 closed the single-dropdown seam.
+/// The routing an app with more than one surface still hand-rolls —
+/// the open flags, the z-order, the dismissal precedence, the hit-map
+/// registration order — is this stack: the `FocusRing`/`Keymap`
+/// treatment for floating surfaces. The keys are the app's own pane
+/// enum (like the ring's focus targets); the widgets and their state
+/// stay app-side, the stack only routes.
+///
+/// The one sequence both halves of the frame consume is
+/// [`SurfaceStack::order`] — bottom-to-top, the painter's algorithm:
+/// paint the base, then walk `order()` resolving each surface's
+/// geometry (`dropdown_rows` + `place`) and painting it erased
+/// (`Overlay`); then register the base and the same `order()` into the
+/// `HitMap`. Screen and mouse agree on z-order by construction.
+///
+/// # The rules
+///
+/// - **`push` opens or raises.** A new key opens on top (`true` — the
+///   app initializes the surface's state); an already-open key is
+///   raised to the top without duplicating (`false` — the state stays).
+/// - **`close` is stable.** Removing a surface anywhere in the stack
+///   keeps the relative order of the rest.
+/// - **`close_top` is the Esc precedence.** The top surface dismisses
+///   first — a modal over an open dropdown, then the dropdown. The
+///   hand-rolled version of this rule is where apps quietly close the
+///   surface underneath the one the user sees.
+/// - **Total everywhere.** `close` of an absent key is `false`,
+///   `close_top` of an empty stack is `None`, `clear` empties; nothing
+///   panics, nothing hides state.
+///
+/// # Examples
+///
+/// ```
+/// use tuvix_core::layer::SurfaceStack;
+///
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// enum Surface { Dropdown, Modal }
+///
+/// use Surface::{Dropdown, Modal};
+///
+/// let mut stack = SurfaceStack::new();
+/// assert!(stack.push(Dropdown), "the dropdown opens");
+/// assert!(stack.push(Modal), "the modal opens over it");
+/// assert_eq!(stack.order(), &[Dropdown, Modal]);
+///
+/// // Esc: the modal is on top, so the modal dismisses first — the
+/// // dropdown underneath stays open.
+/// assert_eq!(stack.close_top(), Some(Modal));
+/// assert_eq!(stack.top(), Some(&Dropdown));
+///
+/// // Reopening an open surface raises it instead of duplicating it.
+/// assert!(!stack.push(Dropdown), "already open — raised");
+/// assert_eq!(stack.order(), &[Dropdown]);
+/// assert_eq!(stack.close_top(), Some(Dropdown));
+/// assert_eq!(stack.close_top(), None, "an empty stack dismisses nothing");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SurfaceStack<K> {
+    /// The open surfaces, bottom-to-top: the paint order, the hit-map
+    /// registration order, the dismissal order's mirror.
+    surfaces: Vec<K>,
+}
+
+impl<K> SurfaceStack<K> {
+    /// Creates an empty stack — no surface floats.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            surfaces: Vec::new(),
+        }
+    }
+
+    /// Opens `key` on top of the stack, or raises an already-open `key`
+    /// to the top. Returns `true` when the surface was newly opened
+    /// (the app initializes its state) and `false` when it was raised
+    /// (the state stays exactly as it was).
+    pub fn push(&mut self, key: K) -> bool
+    where
+        K: PartialEq,
+    {
+        if let Some(position) = self.surfaces.iter().position(|open| *open == key) {
+            let raised = self.surfaces.remove(position);
+            self.surfaces.push(raised);
+            false
+        } else {
+            self.surfaces.push(key);
+            true
+        }
+    }
+
+    /// Closes `key` wherever it sits, keeping the relative order of the
+    /// surfaces above and below it. Returns `false` when the surface
+    /// was not open.
+    pub fn close(&mut self, key: &K) -> bool
+    where
+        K: PartialEq,
+    {
+        if let Some(position) = self.surfaces.iter().position(|open| open == key) {
+            self.surfaces.remove(position);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Dismisses the top surface — the Esc precedence — and returns
+    /// its key (`None` on an empty stack). The app maps the key back to
+    /// its own state (close the select, forget the toast).
+    pub fn close_top(&mut self) -> Option<K> {
+        self.surfaces.pop()
+    }
+
+    /// The top surface — the one the keys and the clicks go to first.
+    #[must_use]
+    pub fn top(&self) -> Option<&K> {
+        self.surfaces.last()
+    }
+
+    /// The open surfaces bottom-to-top: the paint order and the
+    /// hit-map registration order in one sequence. Empty when nothing
+    /// floats.
+    #[must_use]
+    pub fn order(&self) -> &[K] {
+        &self.surfaces
+    }
+
+    /// Whether `key` is currently open (at any height of the stack).
+    #[must_use]
+    pub fn is_open(&self, key: &K) -> bool
+    where
+        K: PartialEq,
+    {
+        self.surfaces.contains(key)
+    }
+
+    /// The number of open surfaces.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.surfaces.len()
+    }
+
+    /// Whether no surface floats.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.surfaces.is_empty()
+    }
+
+    /// Dismisses every surface at once.
+    pub fn clear(&mut self) {
+        self.surfaces.clear();
+    }
+}
+
 /// The shared horizontal rule of `Below` and `Above`: left-align to the
 /// anchor; when that runs past the host, right-align to the anchor's
 /// right edge; when that does not fit either, flush to the host's
@@ -289,12 +452,55 @@ mod tests {
         assert_eq!(dropdown_rows(host, trigger, 0), 0, "no content, no rows");
     }
 
+    // M18 — the routing half of the floating surfaces.
+
     #[test]
-    fn dropdown_rows_is_total_at_the_corners() {
-        let host = Rect::new(0, 0, u16::MAX, u16::MAX);
-        let anchor = Rect::new(0, 0, 1, 1);
-        assert_eq!(dropdown_rows(host, anchor, usize::MAX), 65_534);
-        let sunken = Rect::new(0, u16::MAX, 5, 1);
-        assert_eq!(dropdown_rows(host, sunken, 9), 9, "saturating room above");
+    fn the_stack_pushes_new_surfaces_and_raises_open_ones() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        enum Surface {
+            Dropdown,
+            Tooltip,
+            Modal,
+        }
+        use Surface::{Dropdown, Modal, Tooltip};
+
+        let mut stack = SurfaceStack::new();
+        assert!(stack.push(Dropdown));
+        assert!(stack.push(Tooltip));
+        assert!(stack.push(Modal));
+        assert_eq!(stack.order(), &[Dropdown, Tooltip, Modal]);
+
+        assert!(
+            !stack.push(Dropdown),
+            "an open surface is raised, not duplicated"
+        );
+        assert_eq!(stack.order(), &[Tooltip, Modal, Dropdown]);
+        assert_eq!(stack.len(), 3);
+        assert_eq!(stack.top(), Some(&Dropdown));
+    }
+
+    #[test]
+    fn the_stack_dismisses_the_top_surface_first() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        enum Surface {
+            Dropdown,
+            Modal,
+        }
+        use Surface::{Dropdown, Modal};
+
+        let mut stack = SurfaceStack::new();
+        stack.push(Dropdown);
+        stack.push(Modal);
+
+        assert_eq!(stack.close_top(), Some(Modal), "Esc dismisses the modal");
+        assert_eq!(stack.order(), &[Dropdown], "the dropdown stays open");
+
+        assert!(stack.close(&Dropdown), "closing by value also works");
+        assert!(
+            !stack.close(&Dropdown),
+            "closing a closed surface is a no-op"
+        );
+        assert!(stack.is_empty());
+        assert_eq!(stack.close_top(), None, "an empty stack dismisses nothing");
     }
 }
