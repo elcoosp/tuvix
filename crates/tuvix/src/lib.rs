@@ -87,7 +87,7 @@
 //! [`CancellationToken`](cancellation::CancellationToken) /
 //! [`DrawOutcome`](terminal::DrawOutcome) round out the primitives.
 //!
-//! # Time-travel DevTools: record, reconstruct, inspect (M9)
+//! # Time-travel `DevTools`: record, reconstruct, inspect (M9)
 //!
 //! The M9 kit turns recordings into first-class objects. A
 //! [`SessionRecorder`](session::SessionRecorder) captures a unified
@@ -221,6 +221,35 @@
 //! assert!(buffer.to_string().contains("region: eu-north"));
 //! ```
 //!
+//! # Layers: floating surfaces (M16)
+//!
+//! A floating surface is two decisions: where it goes — [`place`], the
+//! flip-then-clamp geometry — and how it paints — [`Overlay`], the
+//! erase-then-paint composite. The state stays the app's:
+//!
+//! ```
+//! use tuvix::prelude::*;
+//!
+//! let host = Rect::new(0, 0, 40, 10);
+//! let trigger = Rect::new(2, 8, 12, 1);
+//!
+//! // A dropdown cannot fit below a trigger near the bottom edge: place
+//! // flips it above.
+//! let dropdown = place(host, trigger, Size::new(20, 4), Placement::Below);
+//! assert_eq!(dropdown.y, 4, "flipped above the trigger");
+//!
+//! // The composite: whatever sat under the dropdown is erased first,
+//! // and the select keeps driving through its own state.
+//! let mut buffer = Buffer::empty(host);
+//! buffer.set_string(0, 0, "the dashboard underneath", Style::new());
+//! let mut state = SelectState::new();
+//! state.open();
+//! Overlay::new(Select::new(["eu-west", "eu-north"]).label("region"))
+//!     .render(dropdown, &mut buffer, &mut state);
+//! assert!(buffer.to_string().contains("region:"), "the trigger shows");
+//! assert!(buffer.to_string().contains("eu-west"), "the options show");
+//! ```
+//!
 //! See `docs/ARCHITECTURE.md` in the repository for the full design and
 //! `examples/hello.rs`, `examples/devtools.rs` and `examples/forms.rs`
 //! for runnable apps.
@@ -231,6 +260,7 @@ pub use tuvix_backend_crossterm as backend_crossterm;
 pub use tuvix_backend_crossterm::{CrosstermBackend, CrosstermEvents, to_tuvix_event};
 pub use tuvix_backend_termion as backend_termion;
 pub use tuvix_backend_termion::{TermionBackend, TermionEvents};
+pub use tuvix_core::layer::{Placement, place};
 pub use tuvix_core::layout::Flex;
 pub use tuvix_core::markup::{MarkupError, parse_line, parse_spans, parse_text};
 pub use tuvix_core::{line, span, text};
@@ -239,13 +269,13 @@ pub use tuvix_ffi as ffi;
 // brings the module and the macro namespaces in together.
 pub use tuvix_core::{
     anim, backend, buffer, cancellation, clipboard, damage, embed, event, focus, geometry, gesture,
-    hit, journal, keymap, layout, markup, mousemap, preview, replay, scheduler, screen, session,
-    style, stylize, terminal, theme, widget,
+    hit, journal, keymap, layer, layout, markup, mousemap, preview, replay, scheduler, screen,
+    session, style, stylize, terminal, theme, widget,
 };
 pub use tuvix_widgets::{
     Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Checkbox, Clear,
     Dataset, FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem,
-    ListState, Marker, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
+    ListState, Marker, Overlay, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
     ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Switch, Table, TableCell,
     TableRow, TableState, Tabs, TextArea, TextAreaState, Tree, TreeItem, TreeState, ViewportState,
     Wrap, wrap_line,
@@ -283,6 +313,7 @@ pub mod prelude {
     pub use tuvix_core::gesture::{Gesture, GestureConfig, GestureRecognizer, ScrollKind};
     pub use tuvix_core::hit::{Hit, HitMap};
     pub use tuvix_core::keymap::{KeyPattern, Keymap, KeymapOutcome};
+    pub use tuvix_core::layer::{Placement, place};
     pub use tuvix_core::layout::{Constraint, Flex, Layout};
     pub use tuvix_core::markup::{MarkupError, parse_line, parse_spans, parse_text};
     pub use tuvix_core::mousemap::{
@@ -310,7 +341,7 @@ pub mod prelude {
     pub use tuvix_widgets::{
         Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Checkbox, Clear,
         Dataset, FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem,
-        ListState, Marker, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
+        ListState, Marker, Overlay, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Switch, Table,
         TableCell, TableRow, TableState, Tabs, TextArea, TextAreaState, Tree, TreeItem, TreeState,
         ViewportState, Wrap, wrap_line,

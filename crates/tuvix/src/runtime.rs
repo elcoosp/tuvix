@@ -85,6 +85,7 @@ fn rollback_partially_initialized() {
 /// # Panics
 ///
 /// Panics when raw mode or the alternate screen cannot be set up.
+#[must_use]
 pub fn init() -> DefaultRunner {
     try_init().expect("failed to initialize the terminal")
 }
@@ -199,6 +200,7 @@ pub mod termion_runtime {
     /// # Panics
     ///
     /// Panics when raw mode or the alternate screen cannot be set up.
+    #[must_use]
     pub fn init_termion() -> TermionRunner {
         try_init_termion().expect("failed to initialize the termion terminal")
     }
