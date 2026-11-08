@@ -12,7 +12,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tuvix_core::geometry::{Position, Rect, Size};
-use tuvix_core::layer::{Placement, place};
+use tuvix_core::layer::{Placement, dropdown_rows, place};
 
 fn bench_layer(c: &mut Criterion) {
     let mut group = c.benchmark_group("layer");
@@ -56,6 +56,12 @@ fn bench_layer(c: &mut Criterion) {
                 Placement::At(Position::new(190, 55)),
             ))
         });
+    });
+
+    // L4 — the M17 sizing decision: the rows a dropdown requests, the
+    // cap that pairs with `place`'s flip ladder.
+    group.bench_function("l4_dropdown_rows_sizing", |b| {
+        b.iter(|| black_box(dropdown_rows(black_box(host), black_box(trigger), 100)));
     });
 
     group.finish();
