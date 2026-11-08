@@ -17,7 +17,7 @@ edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 authors = ["tuvix contributors"]
-repository = "https://github.com/tuvix-rs/tuvix"
+repository = "https://github.com/elcoosp/tuvix"
 keywords = ["tui", "terminal", "ui", "cli"]
 categories = ["command-line-interface"]
 

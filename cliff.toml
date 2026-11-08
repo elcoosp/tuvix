@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 body = """
 {% if version %}\
     {% if previous.version %}\
-        ## [{{ version | trim_start_matches(pat="v") }}](https://github.com/tuvix-rs/tuvix/compare/{{ previous.version }}...{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+        ## [{{ version | trim_start_matches(pat="v") }}](https://github.com/elcoosp/tuvix/compare/{{ previous.version }}...{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
     {% else %}\
         ## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
     {% endif %}\
@@ -25,7 +25,7 @@ body = """
     {% for commit in commits %}\
         - {% if commit.breaking %}**breaking:** {% endif %}\
             {{ commit.message | upper_first | trim }}\
-            {% if commit.remote.pr_number %} ([#{{ commit.remote.pr_number }}](https://github.com/tuvix-rs/tuvix/pull/{{ commit.remote.pr_number }})){% endif %}\n\
+            {% if commit.remote.pr_number %} ([#{{ commit.remote.pr_number }}](https://github.com/elcoosp/tuvix/pull/{{ commit.remote.pr_number }})){% endif %}\n\
     {% endfor %}\
 {% endfor %}\n
 """
