@@ -111,6 +111,10 @@ pub fn base64_encode(input: &[u8]) -> String {
     out
 }
 
+///
+/// # Errors
+/// Returns [`ClipboardError::TooLarge`] when the base64 payload
+/// would exceed [`OSC52_MAX_PAYLOAD`].
 /// Builds the OSC 52 *set clipboard* sequence for `contents`.
 ///
 /// Empty contents build the clear-the-clipboard sequence. Fails with

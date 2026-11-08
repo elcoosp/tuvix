@@ -84,6 +84,7 @@ impl<ID> Default for HitMap<ID> {
 
 impl<ID: Copy> HitMap<ID> {
     /// Creates an empty map.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -111,6 +112,7 @@ impl<ID: Copy> HitMap<ID> {
     /// The scan runs in reverse registration order (the painter's
     /// algorithm) and stops at the first containment: O(depth of the
     /// overlap), no allocation.
+    #[must_use]
     pub fn hit_test(&self, position: Position) -> Option<Hit<ID>> {
         self.regions
             .iter()
@@ -135,11 +137,13 @@ impl<ID: Copy> HitMap<ID> {
     }
 
     /// How many regions are registered.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.regions.len()
     }
 
     /// Whether no region is registered.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.regions.is_empty()
     }

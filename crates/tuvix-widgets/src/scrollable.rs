@@ -165,7 +165,7 @@ impl<S> ViewportState<S> {
         } else {
             current.saturating_add(delta).max(0)
         };
-        let target = target.max(0) as u16;
+        let target = u16::try_from(target.max(0)).unwrap_or(u16::MAX);
         if target == self.offset_y {
             return false;
         }
@@ -183,7 +183,7 @@ impl<S> ViewportState<S> {
         } else {
             current.saturating_add(delta).max(0)
         };
-        let target = target.max(0) as u16;
+        let target = u16::try_from(target.max(0)).unwrap_or(u16::MAX);
         if target == self.offset_x {
             return false;
         }
@@ -325,6 +325,7 @@ impl<W> Scrollable<W> {
     }
 
     /// Declares the painted extent of the inner widget.
+    #[must_use]
     pub fn content(mut self, content: Size) -> Self {
         self.content = content;
         self
@@ -332,6 +333,7 @@ impl<W> Scrollable<W> {
 
     /// Attaches a vertical scrollbar (rendered in the last column when the
     /// content is taller than the viewport).
+    #[must_use]
     pub fn scrollbar(mut self, scrollbar: Scrollbar) -> Self {
         self.scrollbar = Some(scrollbar);
         self
@@ -483,7 +485,12 @@ mod tests {
 
         fn render(self, area: Rect, buf: &mut Buffer, _state: &mut ()) {
             for (row, line) in self.0.iter().enumerate() {
-                buf.set_string(area.x, area.y + row as u16, *line, Style::new());
+                buf.set_string(
+                    area.x,
+                    area.y + u16::try_from(row).unwrap_or(u16::MAX),
+                    *line,
+                    Style::new(),
+                );
             }
         }
     }

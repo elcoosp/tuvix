@@ -120,6 +120,7 @@ impl Hyperlink {
     }
 
     /// The URI of the link.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -166,6 +167,7 @@ impl Style {
     /// let style = Style::new().fg(tuvix_core::style::Color::Red);
     /// assert_eq!(style.fg, Some(tuvix_core::style::Color::Red));
     /// ```
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             fg: None,
@@ -177,24 +179,28 @@ impl Style {
     }
 
     /// Sets the foreground color.
+    #[must_use]
     pub const fn fg(mut self, color: Color) -> Self {
         self.fg = Some(color);
         self
     }
 
     /// Sets the background color.
+    #[must_use]
     pub const fn bg(mut self, color: Color) -> Self {
         self.bg = Some(color);
         self
     }
 
     /// Sets the underline color.
+    #[must_use]
     pub const fn underline_color(mut self, color: Color) -> Self {
         self.underline_color = Some(color);
         self
     }
 
     /// Enables `modifier` and cancels any pending removal of it.
+    #[must_use]
     pub fn add_modifier(mut self, modifier: Modifier) -> Self {
         self.add_modifier |= modifier;
         self.remove_modifier &= !modifier;
@@ -202,6 +208,7 @@ impl Style {
     }
 
     /// Disables `modifier` and cancels any pending addition of it.
+    #[must_use]
     pub fn remove_modifier(mut self, modifier: Modifier) -> Self {
         self.remove_modifier |= modifier;
         self.add_modifier &= !modifier;
@@ -221,6 +228,7 @@ impl Style {
     /// assert_eq!(patched.fg, Some(Color::Green));
     /// assert_eq!(patched.bg, Some(Color::Blue));
     /// ```
+    #[must_use]
     pub fn patch(mut self, other: Self) -> Self {
         self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);

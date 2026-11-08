@@ -89,14 +89,14 @@ impl Symbol {
             let mut inline = [0_u8; INLINE_CAP];
             inline[..bytes.len()].copy_from_slice(bytes);
             Repr::Inline {
-                len: bytes.len() as u8,
+                len: u8::try_from(bytes.len()).unwrap_or(u8::MAX),
                 bytes: inline,
             }
         } else if bytes.len() <= HEAP_CAP {
             let mut boxed = Box::new([0_u8; HEAP_CAP]);
             boxed[..bytes.len()].copy_from_slice(bytes);
             Repr::Heap {
-                len: bytes.len() as u8,
+                len: u8::try_from(bytes.len()).unwrap_or(u8::MAX),
                 bytes: boxed,
             }
         } else {
@@ -106,6 +106,7 @@ impl Symbol {
     }
 
     /// The empty symbol.
+    #[must_use]
     pub const fn empty() -> Self {
         Self(Repr::Inline {
             len: 0,
@@ -114,6 +115,7 @@ impl Symbol {
     }
 
     /// The glyph as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match &self.0 {
             Repr::Inline { len, bytes } => str::from_utf8(&bytes[..*len as usize]).unwrap_or(""),
@@ -123,11 +125,13 @@ impl Symbol {
     }
 
     /// Returns `true` when the glyph is stored inline (no heap tier).
+    #[must_use]
     pub fn is_inline(&self) -> bool {
         matches!(self.0, Repr::Inline { .. })
     }
 
     /// Returns `true` when the symbol displays nothing.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         matches!(self.0, Repr::Inline { len: 0, bytes: _ })
     }
@@ -136,6 +140,7 @@ impl Symbol {
     ///
     /// ASCII graphics take a one-byte fast path; everything else resolves
     /// through `unicode-width` exactly like the M0 implementation.
+    #[must_use]
     pub fn width(&self) -> usize {
         match &self.0 {
             Repr::Inline {
@@ -218,6 +223,7 @@ pub struct Cell {
 
 impl Cell {
     /// A blank cell: empty symbol, default style, no hyperlink.
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             symbol: Symbol::empty(),
@@ -254,18 +260,21 @@ impl Cell {
     }
 
     /// Returns `true` when the cell displays nothing.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.symbol.is_empty()
     }
 
     /// Display width of the symbol in terminal columns (1 for normal glyphs,
     /// 2 for wide glyphs, 0 for zero-width glyphs).
+    #[must_use]
     pub fn symbol_width(&self) -> usize {
         self.symbol.width()
     }
 
     /// Returns `true` when the symbol occupies two columns and therefore
     /// covers its trailing neighbor.
+    #[must_use]
     pub fn is_wide(&self) -> bool {
         self.symbol.width() == 2
     }
@@ -304,11 +313,13 @@ const ELIDE_MIN_CELLS: usize = 2;
 
 impl DiffRun<'_> {
     /// Number of cells in the run.
+    #[must_use]
     pub fn len(&self) -> u16 {
-        self.cells.len() as u16
+        u16::try_from(self.cells.len()).unwrap_or(u16::MAX)
     }
 
     /// Returns `true` when the run is empty (never produced by the diff).
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cells.is_empty()
     }
@@ -333,7 +344,6 @@ pub struct DiffRuns<'a> {
 
 impl<'a> Iterator for DiffRuns<'a> {
     type Item = DiffRun<'a>;
-    #[allow(clippy::too_many_lines)] // one walk, four rules; splitting hides the invariants
     fn next(&mut self) -> Option<Self::Item> {
         if self.previous.area != self.next.area {
             return None;
@@ -562,6 +572,7 @@ impl PartialEq for Buffer {
 
 impl Buffer {
     /// Creates a buffer full of blank cells with the given area.
+    #[must_use]
     pub fn empty(area: Rect) -> Self {
         let size = area.area() as usize;
         Self {
@@ -592,6 +603,7 @@ impl Buffer {
     }
 
     /// Whether a paint journal is installed.
+    #[must_use]
     pub fn has_journal(&self) -> bool {
         self.journal.is_some()
     }
@@ -676,11 +688,13 @@ impl Buffer {
     }
 
     /// The size of the buffer.
+    #[must_use]
     pub fn size(&self) -> Size {
         self.area.size()
     }
 
     /// Flattened index of `position`, or `None` when it lies outside the area.
+    #[must_use]
     pub fn index_of(&self, position: Position) -> Option<usize> {
         if !self.area.contains(position) {
             return None;
@@ -689,12 +703,17 @@ impl Buffer {
     }
 
     /// Position of a flattened `index`, saturating at the area edges.
+    #[must_use]
     pub fn position_of(&self, index: usize) -> Position {
         let width = self.area.width.max(1) as usize;
-        Position::new((index % width) as u16, (index / width) as u16)
+        Position::new(
+            u16::try_from(index % width).unwrap_or(u16::MAX),
+            u16::try_from(index / width).unwrap_or(u16::MAX),
+        )
     }
 
     /// Returns a shared reference to the cell at `(x, y)`, if inside.
+    #[must_use]
     pub fn get(&self, x: u16, y: u16) -> Option<&Cell> {
         self.content.get(self.index_of(Position::new(x, y))?)
     }
@@ -909,6 +928,7 @@ impl Buffer {
     /// The iterator is lazy and allocation-free; each [`DiffRun`] is
     /// contiguous on a single row. See the [module docs](self) for the
     /// wide-character repaint rules.
+    #[must_use]
     pub fn diff_runs<'a>(&'a self, other: &'a Buffer) -> DiffRuns<'a> {
         debug_assert_eq!(
             self.area, other.area,
@@ -935,6 +955,7 @@ impl Buffer {
     /// `self` was last synced with `other` (the frame journal guarantees
     /// this for buffer-method mutations; direct [`Buffer::content`] slice
     /// writes must call [`Buffer::mark_fully_painted`]).
+    #[must_use]
     pub fn diff_runs_banded<'a>(&'a self, other: &'a Buffer, bands: &'a [Band]) -> DiffRuns<'a> {
         debug_assert_eq!(
             self.area, other.area,
@@ -954,10 +975,13 @@ impl Buffer {
     /// `(x, y, &cell)` tuples; useful for simple backends and tests.
     pub fn diff<'a>(&'a self, other: &'a Buffer) -> impl Iterator<Item = (u16, u16, &'a Cell)> {
         self.diff_runs(other).flat_map(|run| {
-            run.cells
-                .iter()
-                .enumerate()
-                .map(move |(i, cell)| (run.start + i as u16, run.row, cell))
+            run.cells.iter().enumerate().map(move |(i, cell)| {
+                (
+                    run.start + u16::try_from(i).unwrap_or(u16::MAX),
+                    run.row,
+                    cell,
+                )
+            })
         })
     }
 }
@@ -967,7 +991,10 @@ impl core::fmt::Display for Buffer {
     /// covered (skip) cells become `·`.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         for (index, cell) in self.content.iter().enumerate() {
-            if index > 0 && (index as u16).is_multiple_of(self.area.width.max(1)) {
+            if index > 0
+                && u32::try_from(index)
+                    .is_ok_and(|flat| flat.is_multiple_of(u32::from(self.area.width.max(1))))
+            {
                 writeln!(f)?;
             }
             if cell.skip {
@@ -1457,9 +1484,8 @@ mod tests {
         use super::*;
         use crate::style::Hyperlink;
 
-        #[allow(clippy::unnecessary_wraps)] // mirrors the Option<Hyperlink> field
-        fn link(uri: &str) -> Option<Hyperlink> {
-            Some(Hyperlink::new(uri))
+        fn link(uri: &str) -> Hyperlink {
+            Hyperlink::new(uri)
         }
 
         #[test]
@@ -1479,7 +1505,7 @@ mod tests {
             );
             for x in 1..5 {
                 let cell = buffer.get(x, 0).unwrap();
-                assert_eq!(cell.hyperlink, link("https://tuvix.dev"));
+                assert_eq!(cell.hyperlink, Some(link("https://tuvix.dev")));
             }
             // Cells before and after the write stay clean.
             assert_eq!(buffer.get(0, 0).unwrap().hyperlink, None);
@@ -1498,7 +1524,7 @@ mod tests {
             );
             for x in 0..4 {
                 let cell = buffer.get(x, 0).unwrap();
-                assert_eq!(cell.hyperlink, link("https://tuvix.dev"));
+                assert_eq!(cell.hyperlink, Some(link("https://tuvix.dev")));
             }
         }
 
@@ -1506,15 +1532,18 @@ mod tests {
         fn set_hyperlink_updates_one_cell_and_reports_its_position() {
             let mut buffer = Buffer::empty(Rect::new(0, 0, 4, 2));
             assert_eq!(
-                buffer.set_hyperlink(2, 1, link("https://tuvix.dev")),
+                buffer.set_hyperlink(2, 1, Some(link("https://tuvix.dev"))),
                 Some(Position::new(2, 1))
             );
             assert_eq!(
                 buffer.get(2, 1).unwrap().hyperlink,
-                link("https://tuvix.dev")
+                Some(link("https://tuvix.dev"))
             );
             // Outside the buffer: nothing happens, `None` comes back.
-            assert_eq!(buffer.set_hyperlink(9, 9, link("https://tuvix.dev")), None);
+            assert_eq!(
+                buffer.set_hyperlink(9, 9, Some(link("https://tuvix.dev"))),
+                None
+            );
             // Clearing works too.
             assert_eq!(buffer.set_hyperlink(2, 1, None), Some(Position::new(2, 1)));
             assert_eq!(buffer.get(2, 1).unwrap().hyperlink, None);
@@ -1526,7 +1555,8 @@ mod tests {
             let mut b = Buffer::empty(Rect::new(0, 0, 4, 1));
             // Same blank grid, but the hyperlink changed: the diff must
             // emit the cell so the terminal's link state follows.
-            b.set_hyperlink(2, 0, link("https://tuvix.dev")).unwrap();
+            b.set_hyperlink(2, 0, Some(link("https://tuvix.dev")))
+                .unwrap();
             let runs: Vec<DiffRun<'_>> = a.diff_runs(&b).collect();
             assert_eq!(runs.len(), 1);
             assert_eq!((runs[0].row, runs[0].start, runs[0].len()), (0, 2, 1));
@@ -1541,8 +1571,8 @@ mod tests {
         fn different_hyperlinks_emit_a_run() {
             let mut a = Buffer::empty(Rect::new(0, 0, 4, 1));
             let mut b = Buffer::empty(Rect::new(0, 0, 4, 1));
-            a.set_hyperlink(0, 0, link("https://a.dev")).unwrap();
-            b.set_hyperlink(0, 0, link("https://b.dev")).unwrap();
+            a.set_hyperlink(0, 0, Some(link("https://a.dev"))).unwrap();
+            b.set_hyperlink(0, 0, Some(link("https://b.dev"))).unwrap();
             assert_eq!(a.diff_runs(&b).count(), 1);
         }
 
@@ -1550,8 +1580,8 @@ mod tests {
         fn same_hyperlink_does_not_emit() {
             let mut a = Buffer::empty(Rect::new(0, 0, 4, 1));
             let mut b = Buffer::empty(Rect::new(0, 0, 4, 1));
-            a.set_hyperlink(0, 0, link("https://a.dev")).unwrap();
-            b.set_hyperlink(0, 0, link("https://a.dev")).unwrap();
+            a.set_hyperlink(0, 0, Some(link("https://a.dev"))).unwrap();
+            b.set_hyperlink(0, 0, Some(link("https://a.dev"))).unwrap();
             assert_eq!(a.diff_runs(&b).count(), 0);
         }
 
@@ -1563,7 +1593,8 @@ mod tests {
             let a = Buffer::empty(Rect::new(0, 0, 8, 1));
             let mut b = Buffer::empty(Rect::new(0, 0, 8, 1));
             b.set_string(0, 0, "ab", Style::new());
-            b.set_hyperlink(4, 0, link("https://tuvix.dev")).unwrap();
+            b.set_hyperlink(4, 0, Some(link("https://tuvix.dev")))
+                .unwrap();
             let runs: Vec<DiffRun<'_>> = a.diff_runs(&b).collect();
             assert_eq!(runs.len(), 2);
             assert_eq!((runs[0].start, runs[0].len()), (0, 2));

@@ -37,33 +37,66 @@ pub trait Backend {
     /// The error type produced by backend operations.
     type Error: core::error::Error;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the changed-cell runs cannot be
+    /// written (for example an underlying I/O failure).
     /// Writes the given changed-cell runs to the terminal.
     fn draw<'a>(
         &mut self,
         content: impl IntoIterator<Item = DiffRun<'a>>,
     ) -> Result<(), Self::Error>;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the queued output cannot be
+    /// flushed to the terminal.
     /// Flushes queued output to the terminal.
     fn flush(&mut self) -> Result<(), Self::Error>;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the terminal size cannot be
+    /// queried.
     /// Current terminal size in cells.
     fn size(&self) -> Result<Size, Self::Error>;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the cursor position cannot be
+    /// queried.
     /// Current cursor position.
     fn get_cursor_position(&self) -> Result<Position, Self::Error>;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the cursor cannot be moved.
     /// Moves the cursor.
     fn set_cursor_position(&mut self, position: Position) -> Result<(), Self::Error>;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the hide command cannot be sent.
     /// Hides the cursor.
     fn hide_cursor(&mut self) -> Result<(), Self::Error>;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the show command cannot be sent.
     /// Shows the cursor.
     fn show_cursor(&mut self) -> Result<(), Self::Error>;
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the region cannot be cleared.
     /// Clears `region`.
     fn clear(&mut self, region: ClearRegion) -> Result<(), Self::Error>;
 
+    ///
+    /// # Errors
+    /// Never fails in the default no-op implementation; overriding
+    /// implementations return the backend's error when the sequence
+    /// cannot be written.
     /// Writes a raw terminal control sequence, such as a kitty keyboard
     /// protocol push (`ESC [ > flags u`) or a DEC private mode toggle.
     ///
@@ -76,6 +109,11 @@ pub trait Backend {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    /// Never fails in the default no-op implementation; overriding
+    /// implementations return the backend's error when the OSC 52
+    /// sequence cannot be written.
     /// Asks the terminal to put `contents` on the system clipboard (OSC
     /// 52). The terminal may ignore the request or prompt the user; there
     /// is deliberately no readback — clipboard *queries* are the variant
@@ -132,6 +170,7 @@ pub struct TestBackend {
 
 impl TestBackend {
     /// Creates a test backend with the given cell grid.
+    #[must_use]
     pub fn new(size: Size) -> Self {
         Self {
             buffer: Buffer::empty(Rect::from_size(size)),
@@ -142,16 +181,19 @@ impl TestBackend {
     }
 
     /// The visible state: what a real terminal would show.
+    #[must_use]
     pub fn buffer(&self) -> &Buffer {
         &self.buffer
     }
 
     /// The current cursor position.
+    #[must_use]
     pub fn cursor_position(&self) -> Position {
         self.cursor
     }
 
     /// Whether the cursor is hidden.
+    #[must_use]
     pub fn is_cursor_hidden(&self) -> bool {
         self.hidden_cursor
     }
@@ -162,6 +204,7 @@ impl TestBackend {
     }
 
     /// The raw control sequences recorded so far, in write order.
+    #[must_use]
     pub fn control_log(&self) -> &[String] {
         &self.control_log
     }
@@ -176,7 +219,7 @@ impl Backend for TestBackend {
     ) -> Result<(), Self::Error> {
         for run in content {
             for (index, cell) in run.cells.iter().enumerate() {
-                let x = run.start + index as u16;
+                let x = run.start + u16::try_from(index).unwrap_or(u16::MAX);
                 // Emulate real terminal behavior: overwriting either half of
                 // a wide glyph clears the whole pair, even when the neighbor
                 // cell is not part of this diff batch.

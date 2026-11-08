@@ -53,6 +53,7 @@ impl<T> Default for FocusRing<T> {
 
 impl<T> FocusRing<T> {
     /// Creates an empty, unfocused ring.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             items: Vec::new(),
@@ -77,26 +78,31 @@ impl<T> FocusRing<T> {
     }
 
     /// The number of focus targets.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.items.len()
     }
 
     /// Whether the ring holds no targets.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
     /// All targets in cycle order.
+    #[must_use]
     pub fn items(&self) -> &[T] {
         &self.items
     }
 
     /// The currently focused target, if any.
+    #[must_use]
     pub fn current(&self) -> Option<&T> {
         self.items.get(self.index?)
     }
 
     /// The focused position, if any.
+    #[must_use]
     pub fn index(&self) -> Option<usize> {
         self.index
     }

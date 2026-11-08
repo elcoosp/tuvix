@@ -335,7 +335,7 @@ fn bench_widgets_m7(c: &mut Criterion) {
     group.finish();
 }
 
-/// M9: the DevTools surfaces.
+/// M9: the `DevTools` surfaces.
 fn bench_widgets_m9(c: &mut Criterion) {
     use tuvix_core::preview::HistorySink;
     use tuvix_core::screen::Screen;

@@ -86,46 +86,54 @@ pub struct Block {
 
 impl Block {
     /// A block with no borders and no title.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// A block with all four borders (plain style).
+    #[must_use]
     pub fn bordered() -> Self {
         Self::new().borders(Borders::ALL)
     }
 
     /// Sets which borders to draw.
+    #[must_use]
     pub fn borders(mut self, borders: Borders) -> Self {
         self.borders = borders;
         self
     }
 
     /// Sets the border character set.
+    #[must_use]
     pub fn border_type(mut self, border_type: BorderType) -> Self {
         self.border_type = border_type;
         self
     }
 
     /// Sets the style applied to border glyphs.
+    #[must_use]
     pub fn border_style(mut self, style: Style) -> Self {
         self.border_style = style;
         self
     }
 
     /// Sets the title, rendered on the top border row.
+    #[must_use]
     pub fn title(mut self, title: impl Into<Line>) -> Self {
         self.title = Some(title.into());
         self
     }
 
     /// Sets the style layered under the title line.
+    #[must_use]
     pub fn title_style(mut self, style: Style) -> Self {
         self.title_style = style;
         self
     }
 
     /// The area inside the borders.
+    #[must_use]
     pub fn inner(&self, area: Rect) -> Rect {
         let mut inner = area;
         if self.borders.intersects(Borders::LEFT) {
@@ -266,6 +274,7 @@ fn render_line_clipped(
 impl Block {
     /// Maps the theme onto the block: the `border` slot styles the borders,
     /// the `title` slot styles the title.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.border_style = theme.border;
         self.title_style = theme.title;

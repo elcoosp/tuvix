@@ -1,7 +1,7 @@
-//! FrameInspector: replay a recorded frame as a picture-in-picture
+//! `FrameInspector`: replay a recorded frame as a picture-in-picture
 //! overlay (M9, architecture §5.8).
 //!
-//! The DevTools scrub view: hand it a [`Screen`] reconstructed from a
+//! The `DevTools` scrub view: hand it a [`Screen`] reconstructed from a
 //! recorded frame ([`Screen::from_ansi`](tuvix_core::screen::Screen::from_ansi)
 //! over a [`SessionRecorder`](tuvix_core::session::SessionRecorder) or
 //! [`HistorySink`](tuvix_core::preview::HistorySink) capture) and it
@@ -60,6 +60,7 @@ pub struct FrameInspector {
 
 impl FrameInspector {
     /// Inspects `screen` — a frame reconstructed from a recording.
+    #[must_use]
     pub fn new(screen: Screen) -> Self {
         Self {
             screen,
@@ -73,18 +74,21 @@ impl FrameInspector {
     }
 
     /// Sets the border title (drawn only when the border is on).
+    #[must_use]
     pub fn title(mut self, title: impl Into<String>) -> Self {
         self.title = Some(title.into());
         self
     }
 
     /// Toggles the surrounding border (on by default).
+    #[must_use]
     pub fn border(mut self, border: bool) -> Self {
         self.border = border;
         self
     }
 
     /// Styles the border (and the title).
+    #[must_use]
     pub fn border_style(mut self, style: Style) -> Self {
         self.border_style = style;
         self
@@ -92,18 +96,21 @@ impl FrameInspector {
 
     /// Shows the timeline footer: `current` is the zero-based index of
     /// the displayed frame within a session of `total` frames.
+    #[must_use]
     pub fn timeline(mut self, current: usize, total: usize) -> Self {
         self.timeline = Some((current, total.max(1)));
         self
     }
 
     /// Shows the frame's recorded timestamp in the footer.
+    #[must_use]
     pub fn at(mut self, at: Duration) -> Self {
         self.at = Some(at);
         self
     }
 
     /// Styles the footer line.
+    #[must_use]
     pub fn footer_style(mut self, style: Style) -> Self {
         self.footer_style = style;
         self

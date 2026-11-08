@@ -2,7 +2,7 @@
 //! greeting that quits on 'q', with the M2 runtime driven by the M5
 //! termion event reader.
 //!
-//! Run with: cargo run -p tuvix --example termion_hello
+//! Run with: cargo run -p tuvix --example `termion_hello`
 
 #![cfg(unix)]
 

@@ -121,6 +121,7 @@ pub struct MousePattern<ID> {
 
 impl<ID: Copy + PartialEq> MousePattern<ID> {
     /// A pattern for `class` anywhere on the screen, any button.
+    #[must_use]
     pub fn anywhere(class: MouseClass) -> Self {
         Self {
             target: MouseTarget::Any,
@@ -139,12 +140,14 @@ impl<ID: Copy + PartialEq> MousePattern<ID> {
     }
 
     /// Requires an exact button.
+    #[must_use]
     pub fn button(mut self, button: MouseButton) -> Self {
         self.button = ButtonPattern::Exact(button);
         self
     }
 
     /// Accepts any button (the default, spelled for intent).
+    #[must_use]
     pub fn any_button(mut self) -> Self {
         self.button = ButtonPattern::Any;
         self
@@ -217,6 +220,7 @@ impl<ID, C> Default for MouseMap<ID, C> {
 
 impl<ID, C> MouseMap<ID, C> {
     /// Creates an empty map.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -228,11 +232,13 @@ impl<ID, C> MouseMap<ID, C> {
     }
 
     /// How many bindings are registered.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.bindings.len()
     }
 
     /// Whether no binding is registered.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.bindings.is_empty()
     }
@@ -261,6 +267,7 @@ impl<ID: Copy + PartialEq, C: Clone> MouseMap<ID, C> {
 /// where everything else happened (the pointer). Exposed for callers
 /// that resolve the hit map themselves — [`MouseMap::resolve`] takes the
 /// resolved hit, so apps call [`HitMap::hit_test`](crate::hit::HitMap::hit_test) with this.
+#[must_use]
 pub fn anchor(gesture: &Gesture) -> Position {
     match *gesture {
         Gesture::Press { position, .. }

@@ -156,26 +156,31 @@ impl Screen {
     }
 
     /// An empty screen (zero by zero cells).
+    #[must_use]
     pub fn empty() -> Self {
         Self::default()
     }
 
     /// The discovered width: the longest written row.
+    #[must_use]
     pub fn width(&self) -> u16 {
         self.width
     }
 
     /// The discovered height: the highest row addressed.
+    #[must_use]
     pub fn height(&self) -> u16 {
         self.height
     }
 
     /// Whether nothing was recorded at all (no row was ever addressed).
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.height == 0
     }
 
     /// Whether every cell is blank (default style, no glyph, no link).
+    #[must_use]
     pub fn is_blank(&self) -> bool {
         self.cells.iter().all(|cell| {
             cell.symbol.as_str().is_empty()
@@ -185,6 +190,7 @@ impl Screen {
     }
 
     /// The cell at `(x, y)`, or `None` when out of bounds.
+    #[must_use]
     pub fn cell(&self, x: u16, y: u16) -> Option<&Cell> {
         if x >= self.width || y >= self.height {
             return None;
@@ -197,6 +203,7 @@ impl Screen {
     /// pasted at the area origin and clipped to it. Cells beyond the
     /// recorded grid stay blank — a snapshot does not encode the
     /// viewport width, only what was written.
+    #[must_use]
     pub fn to_buffer(&self, area: Rect) -> Buffer {
         let mut buffer = Buffer::empty(area);
         let copy_width = self.width.min(area.width);
@@ -214,6 +221,7 @@ impl Screen {
     /// own discovered dimensions. For any canonical snapshot this is the
     /// identity (pinned by tests), which makes the format round-trip
     /// safe for golden sessions.
+    #[must_use]
     pub fn to_ansi(&self) -> String {
         serialize_ansi(&self.to_buffer(Rect::new(0, 0, self.width, self.height)))
     }
@@ -222,6 +230,7 @@ impl Screen {
     /// triples over the union of both screens' dimensions (screens of
     /// different sizes compare as blank-padded to the union). Owned
     /// copies: the result outlives neither screen borrow.
+    #[must_use]
     pub fn diff(&self, other: &Screen) -> Vec<(u16, u16, Cell)> {
         let width = self.width.max(other.width);
         let height = self.height.max(other.height);
@@ -279,7 +288,7 @@ impl<'a> Parser<'a> {
     fn finish(self) -> Screen {
         let height = self.rows.len();
         let width = self.rows.iter().map(Vec::len).max().unwrap_or(0);
-        let width = width.min(u16::MAX as usize) as u16;
+        let width = u16::try_from(width).unwrap_or(u16::MAX);
         let mut cells = Vec::with_capacity(height * width as usize);
         for row in &self.rows {
             cells.extend_from_slice(row);
@@ -287,7 +296,7 @@ impl<'a> Parser<'a> {
         }
         Screen {
             width,
-            height: height.min(u16::MAX as usize) as u16,
+            height: u16::try_from(height).unwrap_or(u16::MAX),
             cells,
         }
     }
@@ -314,7 +323,7 @@ impl<'a> Parser<'a> {
 
     /// Writes one grapheme (and its covered tail cells) at the cursor.
     fn write_grapheme(&mut self, glyph: &str) {
-        let columns = glyph.width().max(1) as u16;
+        let columns = u16::try_from(glyph.width().max(1)).unwrap_or(u16::MAX);
         let (row, col) = (self.cursor_row, self.cursor_col);
         self.row_for_writing(row, col + columns.saturating_sub(1));
         let cells = &mut self.rows[row as usize];
@@ -589,8 +598,8 @@ impl<'a> Parser<'a> {
                 },
             });
         }
-        self.cursor_row = (row - 1) as u16;
-        self.cursor_col = (col - 1) as u16;
+        self.cursor_row = u16::try_from(row - 1).unwrap_or(u16::MAX);
+        self.cursor_col = u16::try_from(col - 1).unwrap_or(u16::MAX);
         // Addressed rows count toward the discovered height even when
         // nothing is written on them (a blank CUP + EL row).
         self.ensure_row(self.cursor_row);

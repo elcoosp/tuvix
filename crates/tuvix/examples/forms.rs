@@ -245,7 +245,12 @@ fn draw_form(frame: &mut Frame, app: &mut App) {
     app.hits.push(Region::Trigger, rows[4]);
     if app.region.is_open() {
         for (index, _) in app.regions.iter().enumerate() {
-            let option_row = Rect::new(rows[4].x, rows[4].y + 1 + index as u16, rows[4].width, 1);
+            let option_row = Rect::new(
+                rows[4].x,
+                rows[4].y + 1 + u16::try_from(index).unwrap_or(u16::MAX),
+                rows[4].width,
+                1,
+            );
             app.hits.push(Region::Choice(index), option_row);
         }
     }

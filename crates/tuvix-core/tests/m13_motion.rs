@@ -11,6 +11,10 @@
 //! `cargo test -p tuvix-core --release --ignored` and record the numbers
 //! in docs/BENCHMARKS.md.
 
+#![expect(
+    clippy::unreadable_literal,
+    reason = "machine-generated golden easing samples (M13) pinned at full precision; digit grouping would break byte-identical regeneration from the generator output"
+)]
 use std::time::Duration;
 
 use tuvix_core::anim::{Animator, Easing, Interpolate, Progress, Repeat, Tween};
@@ -61,52 +65,40 @@ fn progress_complement_flips_the_domain() {
 
 /// `(curve, [ease(0.25), ease(0.5), ease(0.75)])` — computed with the
 /// easings.net formulas in Python before the implementation was written.
-/// The literals are machine-generated reference data, kept verbatim.
-#[allow(clippy::unreadable_literal, clippy::excessive_precision)]
+/// The literals are machine-generated reference data in shortest
+/// round-trip form: every digit shown is a digit the value needs.
 const GOLDEN: &[(Easing, [f64; 3])] = &[
-    (Easing::Linear, [2.5e-1, 5.0e-1, 7.5e-1]),
-    (Easing::InQuad, [6.25e-2, 2.5e-1, 5.625e-1]),
-    (Easing::OutQuad, [4.375e-1, 7.5e-1, 9.375e-1]),
-    (Easing::InOutQuad, [1.25e-1, 5.0e-1, 8.75e-1]),
-    (Easing::InCubic, [1.5625e-2, 1.25e-1, 4.21875e-1]),
-    (Easing::OutCubic, [5.78125e-1, 8.75e-1, 9.84375e-1]),
-    (Easing::InOutCubic, [6.25e-2, 5.0e-1, 9.375e-1]),
-    (Easing::OutQuart, [6.8359375e-1, 9.375e-1, 9.9609375e-1]),
-    (Easing::InOutQuart, [3.125e-2, 5.0e-1, 9.6875e-1]),
+    (Easing::Linear, [0.25, 0.5, 0.75]),
+    (Easing::InQuad, [0.0625, 0.25, 0.5625]),
+    (Easing::OutQuad, [0.4375, 0.75, 0.9375]),
+    (Easing::InOutQuad, [0.125, 0.5, 0.875]),
+    (Easing::InCubic, [0.015625, 0.125, 0.421875]),
+    (Easing::OutCubic, [0.578125, 0.875, 0.984375]),
+    (Easing::InOutCubic, [0.0625, 0.5, 0.9375]),
+    (Easing::OutQuart, [0.68359375, 0.9375, 0.99609375]),
+    (Easing::InOutQuart, [0.03125, 0.5, 0.96875]),
     (
         Easing::OutSine,
-        [
-            3.82683432365089782e-1,
-            7.07106781186547462e-1,
-            9.23879532511286738e-1,
-        ],
+        [0.3826834323650898, 0.7071067811865475, 0.9238795325112867],
     ),
     (
         Easing::InOutSine,
-        [
-            1.46446609406726214e-1,
-            4.99999999999999944e-1,
-            8.53553390593273731e-1,
-        ],
+        [0.1464466094067262, 0.49999999999999994, 0.8535533905932737],
     ),
     (
         Easing::OutExpo,
-        [8.23223304703363135e-1, 9.6875e-1, 9.94475728271980053e-1],
+        [0.8232233047033631, 0.96875, 0.99447572827198],
     ),
-    (Easing::InOutExpo, [1.5625e-2, 5.0e-1, 9.84375e-1]),
+    (Easing::InOutExpo, [0.015625, 0.5, 0.984375]),
     (
         Easing::OutBack,
-        [
-            8.17409687500000204e-1,
-            1.08769749999999998,
-            1.06413656250000010,
-        ],
+        [0.8174096875000002, 1.0876975, 1.0641365625],
     ),
     (
         Easing::OutElastic,
-        [9.11611652351681623e-1, 1.015625, 1.00552427172801995],
+        [0.9116116523516816, 1.015625, 1.00552427172802],
     ),
-    (Easing::OutBounce, [4.7265625e-1, 7.65625e-1, 9.7265625e-1]),
+    (Easing::OutBounce, [0.47265625, 0.765625, 0.97265625]),
 ];
 
 #[test]

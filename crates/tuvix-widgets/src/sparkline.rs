@@ -54,18 +54,21 @@ impl Sparkline {
     }
 
     /// Pins the maximum of the scale instead of the data maximum.
+    #[must_use]
     pub fn max(mut self, max: u64) -> Self {
         self.max = Some(max);
         self
     }
 
     /// Sets the style of the bar cells.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Wraps the sparkline in a block; bars fill the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -101,20 +104,20 @@ impl Sparkline {
             if eighths == 0 {
                 continue;
             }
-            let x = spark_area.x + column as u16;
+            let x = spark_area.x + u16::try_from(column).unwrap_or(u16::MAX);
             let full_rows = eighths / 8;
             let fraction = eighths % 8;
             for row in 0..full_rows {
                 // Full blocks stack from the bottom row upward.
-                let y = spark_area.bottom() - 1 - row as u16;
+                let y = spark_area.bottom() - 1 - u16::try_from(row).unwrap_or(u16::MAX);
                 if let Some(cell) = buffer.get_mut(x, y) {
                     cell.set_symbol("█").set_style(self.style);
                 }
             }
             if fraction > 0 {
-                let y = spark_area.bottom() - 1 - full_rows as u16;
+                let y = spark_area.bottom() - 1 - u16::try_from(full_rows).unwrap_or(u16::MAX);
                 if let Some(cell) = buffer.get_mut(x, y) {
-                    cell.set_symbol(SPARK_LEVELS[(fraction - 1) as usize])
+                    cell.set_symbol(SPARK_LEVELS[usize::try_from(fraction - 1).unwrap_or(0)])
                         .set_style(self.style);
                 }
             }
@@ -130,6 +133,7 @@ impl Widget for Sparkline {
 
 impl Sparkline {
     /// Maps the theme onto the sparkline: the `sparkline` slot styles the bars.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.sparkline;
         self

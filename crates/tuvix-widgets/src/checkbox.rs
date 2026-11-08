@@ -67,36 +67,42 @@ impl Checkbox {
     }
 
     /// The checked flag the app owns; `true` renders the checked marker.
+    #[must_use]
     pub fn checked(mut self, checked: bool) -> Self {
         self.checked = checked;
         self
     }
 
     /// The base style of the marker and the label.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Patched over the base style while the box is checked.
+    #[must_use]
     pub fn checked_style(mut self, style: Style) -> Self {
         self.checked_style = style;
         self
     }
 
     /// The marker rendered while checked (default `☑`).
+    #[must_use]
     pub fn checked_symbol<T: Into<Span>>(mut self, symbol: T) -> Self {
         self.checked_symbol = symbol.into();
         self
     }
 
     /// The marker rendered while unchecked (default `☐`).
+    #[must_use]
     pub fn unchecked_symbol<T: Into<Span>>(mut self, symbol: T) -> Self {
         self.unchecked_symbol = symbol.into();
         self
     }
 
     /// Wraps the checkbox in a block; the row fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -104,6 +110,7 @@ impl Checkbox {
 
     /// Maps the theme: the `text` slot styles the row, the `accent` slot
     /// patches it while checked.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.text;
         self.checked_style = theme.accent;

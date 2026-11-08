@@ -212,6 +212,11 @@ impl TvxBuffer {
     /// The differential identity `decode(encode(buffer)) == buffer` is a
     /// core gate; this method exposes the decoded read-back to Rust hosts
     /// that prefer it over raw snapshot bytes.
+    ///
+    /// # Panics
+    /// Panics when the self-produced snapshot fails to decode —
+    /// unreachable while the differential gate `decode(encode(b)) == b`
+    /// holds.
     #[must_use]
     pub fn read_back(&self) -> Buffer {
         decode_snapshot(&self.snapshot()).expect("self-produced snapshot is valid")
@@ -245,8 +250,9 @@ pub fn error_kind_code(kind: PacketErrorKind) -> i32 {
 /// `out` must be null or valid for `cap` bytes of writes.
 unsafe fn copy_out(bytes: &[u8], out: *mut u8, cap: usize) -> i64 {
     let needed = bytes.len();
+    let needed_i64 = i64::try_from(needed).unwrap_or(i64::MAX);
     if cap < needed {
-        return -(needed as i64);
+        return -(needed_i64);
     }
     if !out.is_null() {
         // SAFETY: the caller guarantees `out` is valid for `cap >= needed`
@@ -256,7 +262,7 @@ unsafe fn copy_out(bytes: &[u8], out: *mut u8, cap: usize) -> i64 {
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, needed);
         }
     }
-    needed as i64
+    needed_i64
 }
 
 /// The ABI version, packed as `(major << 16) | (minor << 8) | patch` —

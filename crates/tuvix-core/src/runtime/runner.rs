@@ -87,6 +87,10 @@ impl<B: Backend> AppRunner<B> {
         &self.input
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the enter command for the
+    /// new input mode cannot be written.
     /// Pushes `mode` onto the input stack and writes its enable sequences to
     /// the terminal immediately.
     ///
@@ -101,6 +105,15 @@ impl<B: Backend> AppRunner<B> {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the restore command for
+    /// the popped input mode cannot be written.
+    ///
+    /// # Panics
+    /// Panics on an internal invariant break only: the mode that
+    /// `last` just read from the stack fails to pop. Unreachable in
+    /// practice.
     /// Pops the most recently pushed mode and writes its disable sequences.
     /// Returns the popped mode, or `None` when the stack is empty.
     ///
@@ -121,6 +134,10 @@ impl<B: Backend> AppRunner<B> {
         Ok(Some(mode))
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the frame cannot be drawn or
+    /// flushed.
     /// Renders one frame through the wrapped [`Terminal::draw`].
     pub fn draw(
         &mut self,
@@ -129,6 +146,10 @@ impl<B: Backend> AppRunner<B> {
         self.terminal.draw(render)
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the persistent frame cannot
+    /// be drawn or flushed.
     /// Renders one journal-driven frame through the wrapped
     /// [`Terminal::draw_persistent`].
     pub fn draw_persistent(
@@ -138,6 +159,10 @@ impl<B: Backend> AppRunner<B> {
         self.terminal.draw_persistent(render)
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the frame cannot be drawn or
+    /// flushed.
     /// Renders one frame that input is allowed to preempt, through the
     /// wrapped [`Terminal::draw_cancellable`].
     pub fn draw_cancellable(
@@ -148,6 +173,10 @@ impl<B: Backend> AppRunner<B> {
         self.terminal.draw_cancellable(token, render)
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the persistent frame cannot
+    /// be drawn or flushed.
     /// Renders one journal-driven frame that input is allowed to preempt,
     /// through the wrapped [`Terminal::draw_persistent_cancellable`].
     pub fn draw_persistent_cancellable(
@@ -158,6 +187,10 @@ impl<B: Backend> AppRunner<B> {
         self.terminal.draw_persistent_cancellable(token, render)
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the terminal restore
+    /// sequence cannot be written.
     /// Restores the terminal: every pushed input mode is disabled in LIFO
     /// order, the cursor is shown, everything is flushed and the panic
     /// restoration spec is unregistered.

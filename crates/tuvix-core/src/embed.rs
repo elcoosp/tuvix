@@ -400,7 +400,7 @@ fn write_color(color: Color, out: &mut Vec<u8>) {
         named => {
             out.push(color_kind::NAMED);
             let index = NAMED_COLORS.iter().position(|c| *c == named).unwrap_or(0);
-            out.push(index as u8);
+            out.push(u8::try_from(index).unwrap_or(0));
         }
     }
 }
@@ -461,6 +461,7 @@ pub struct PacketWriter {
 
 impl PacketWriter {
     /// Starts a packet with the header written and the op count at zero.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             bytes: Self::header(),
@@ -477,6 +478,7 @@ impl PacketWriter {
     }
 
     /// Encodes one more mutation into the packet.
+    #[must_use]
     pub fn push(mut self, mutation: &Mutation) -> Self {
         mutation.write(&mut self.bytes);
         self.count = self.count.saturating_add(1);
@@ -484,6 +486,7 @@ impl PacketWriter {
     }
 
     /// Patches the op count and returns the finished packet.
+    #[must_use]
     pub fn finish(self) -> Vec<u8> {
         let mut bytes = self.bytes;
         bytes[4..8].copy_from_slice(&self.count.to_le_bytes());
@@ -505,6 +508,10 @@ pub struct MutationReader<'a> {
 }
 
 impl<'a> MutationReader<'a> {
+    ///
+    /// # Errors
+    /// Returns the header [`PacketError`] when the magic, the version,
+    /// or the declared op count is invalid.
     /// Validates the header and prepares to read the declared mutations.
     pub fn new(data: &'a [u8]) -> Result<Self, PacketError> {
         let mut reader = Self {
@@ -694,6 +701,11 @@ impl<'a> MutationReader<'a> {
         Ok(char::from(byte))
     }
 
+    ///
+    /// # Errors
+    /// Returns the parse [`PacketError`] when the next mutation cannot
+    /// be decoded: truncated stream, unknown op, or a control character
+    /// in a payload.
     /// Decodes the next mutation, or `None` once the declared op count has
     /// been consumed.
     ///
@@ -753,15 +765,21 @@ impl<'a> MutationReader<'a> {
     }
 
     /// How many bytes of the stream have been consumed so far.
+    #[must_use]
     pub fn consumed(&self) -> usize {
         self.position
     }
 
     /// How many declared ops have not been read yet.
+    #[must_use]
     pub fn remaining(&self) -> u32 {
         self.remaining
     }
 
+    ///
+    /// # Errors
+    /// Returns [`PacketErrorKind::TrailingBytes`] when unread bytes
+    /// trail the last declared op.
     /// Enforces that the packet ends exactly at the last declared op.
     pub fn finish(self) -> Result<(), PacketError> {
         if self.position < self.data.len() {
@@ -799,6 +817,7 @@ impl<'a> MutationReader<'a> {
 /// let decoded = decode_snapshot(&encode_snapshot(&buffer)).unwrap();
 /// assert_eq!(decoded, buffer);
 /// ```
+#[must_use]
 pub fn encode_snapshot(buffer: &Buffer) -> Vec<u8> {
     let mut out = Vec::with_capacity(64);
     out.extend_from_slice(&PACKET_MAGIC);
@@ -815,14 +834,14 @@ pub fn encode_snapshot(buffer: &Buffer) -> Vec<u8> {
         }
         out.push(1);
         let listed = row.iter().filter(|cell| **cell != Cell::empty()).count();
-        out.extend_from_slice(&(listed as u16).to_le_bytes());
+        out.extend_from_slice(&u16::try_from(listed).unwrap_or(u16::MAX).to_le_bytes());
         for (x, cell) in row.iter().enumerate() {
             if *cell == Cell::empty() {
                 continue;
             }
-            out.extend_from_slice(&(x as u16).to_le_bytes());
+            out.extend_from_slice(&u16::try_from(x).unwrap_or(u16::MAX).to_le_bytes());
             let symbol = cell.symbol.as_str();
-            out.push(symbol.len() as u8);
+            out.push(u8::try_from(symbol.len()).unwrap_or(u8::MAX));
             out.extend_from_slice(symbol.as_bytes());
             let mut flags = 0u8;
             if cell.skip {
@@ -842,6 +861,11 @@ pub fn encode_snapshot(buffer: &Buffer) -> Vec<u8> {
     out
 }
 
+///
+/// # Errors
+/// Returns the strict-validation [`PacketError`] — bad magic,
+/// unknown version, truncated stream, unknown cell flags, or
+/// out-of-range columns — with the offending byte offset.
 /// Decodes a frame snapshot packet back into a [`Buffer`].
 ///
 /// Strict, like every parser at a tuvix trust boundary: bad magic,
@@ -926,6 +950,11 @@ fn check_no_control_characters(text: &str, offset: usize) -> Result<(), PacketEr
     }
 }
 
+///
+/// # Errors
+/// Returns the first [`PacketError`] encountered, either from
+/// header validation or from decoding one of the declared
+/// mutations.
 /// Parses a whole packet into its mutations, enforcing that nothing trails
 /// the last declared op.
 ///

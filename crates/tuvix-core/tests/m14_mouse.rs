@@ -847,8 +847,8 @@ fn b17_mouse_decision_within_frame_budget() {
     // Build a 1,000-region map (a dense dashboard: 40x25 grid of tiles).
     let mut hits: HitMap<u32> = HitMap::new();
     for id in 0..1_000u32 {
-        let x = ((id % 40) * 5) as u16;
-        let y = ((id / 40) * 2) as u16;
+        let x = u16::try_from((id % 40) * 5).unwrap_or(u16::MAX);
+        let y = u16::try_from((id / 40) * 2).unwrap_or(u16::MAX);
         hits.push(id, Rect::new(x, y, 5, 2));
     }
     let mut map: MouseMap<u32, u32> = MouseMap::new();
@@ -887,7 +887,7 @@ fn b17_mouse_decision_within_frame_budget() {
     let mut gestures = GestureRecognizer::new(GestureConfig::default());
     let stream: Vec<MouseEvent> = (0..1_000)
         .flat_map(|i| {
-            let x = (i % 80) as u16;
+            let x = u16::try_from(i % 80).unwrap_or(u16::MAX);
             [
                 mouse(MouseEventKind::Down(MouseButton::Left), x, 1),
                 mouse(MouseEventKind::Up(MouseButton::Left), x, 1),
@@ -900,7 +900,7 @@ fn b17_mouse_decision_within_frame_budget() {
         elapsed += 700; // outside the double-click window: every release clicks
         let _ = std::hint::black_box(gestures.feed(*event, ms(elapsed)));
     }
-    let per_event = start.elapsed() / stream.len() as u32;
+    let per_event = start.elapsed() / u32::try_from(stream.len()).unwrap_or(u32::MAX);
     assert!(
         per_event <= Duration::from_micros(1),
         "B17 gate failed: {per_event:?} per classified mouse event (budget 1 us)"

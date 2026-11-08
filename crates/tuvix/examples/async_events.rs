@@ -5,7 +5,7 @@
 //! Prints every event as it arrives (raw mode makes the terminal echo it as
 //! escape sequences; Ctrl+C quits via the kitty disambiguated report).
 //!
-//! Run with: cargo run -p tuvix --example async_events
+//! Run with: cargo run -p tuvix --example `async_events`
 
 use std::future::Future;
 use std::io::Result;

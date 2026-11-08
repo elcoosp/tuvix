@@ -83,6 +83,7 @@ impl Theme {
     /// assert_eq!(theme.gauge.fg, Some(Color::Green));
     /// assert_eq!(theme.error.fg, Some(Color::LightRed));
     /// ```
+    #[must_use]
     pub fn dark() -> Self {
         Self {
             text: Style::new().fg(Color::Gray),
@@ -113,6 +114,7 @@ impl Theme {
     /// assert_eq!(theme.text.fg, Some(Color::Black));
     /// assert_eq!(theme.muted.fg, Some(Color::Gray));
     /// ```
+    #[must_use]
     pub fn light() -> Self {
         Self {
             text: Style::new().fg(Color::Black),
@@ -154,6 +156,7 @@ impl Theme {
     ///     assert_eq!(slot.bg, None);
     /// }
     /// ```
+    #[must_use]
     pub fn monochrome() -> Self {
         let bold = Style::new().add_modifier(Modifier::BOLD);
         let reversed = Style::new().add_modifier(Modifier::REVERSED);
@@ -181,6 +184,7 @@ impl Theme {
     ///
     /// Resolution rules live in the pure [`Theme::resolve`]; see there for
     /// pinned examples.
+    #[must_use]
     pub fn from_env() -> Self {
         Self::resolve(std::env::var_os("NO_COLOR").as_deref())
     }
@@ -201,6 +205,7 @@ impl Theme {
     ///     Theme::monochrome()
     /// );
     /// ```
+    #[must_use]
     pub fn resolve(no_color: Option<&std::ffi::OsStr>) -> Self {
         if no_color.is_some_and(|value| !value.is_empty()) {
             Self::monochrome()

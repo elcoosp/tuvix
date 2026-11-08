@@ -54,8 +54,8 @@ fn text_buffer() -> Buffer {
 
 fn scatter(buffer: &mut Buffer, count: usize) {
     for index in 0..count {
-        let x = ((index * 37 + 11) % usize::from(WIDTH)) as u16;
-        let y = ((index * 53 + 7) % usize::from(HEIGHT)) as u16;
+        let x = u16::try_from((index * 37 + 11) % usize::from(WIDTH)).unwrap_or(u16::MAX);
+        let y = u16::try_from((index * 53 + 7) % usize::from(HEIGHT)).unwrap_or(u16::MAX);
         buffer.set_string(x, y, "X", Style::new().fg(Color::Red));
     }
 }
@@ -219,7 +219,9 @@ fn b10_input_to_paint_p99_within_eight_milliseconds() {
 
     let mut latencies = Vec::with_capacity(KEYSTROKES);
     for keystroke in 0..KEYSTROKES {
-        let code = KeyCode::Char(char::from_u32(65 + (keystroke % 26) as u32).unwrap_or('a'));
+        let code = KeyCode::Char(
+            char::from_u32(u32::try_from(65 + (keystroke % 26)).unwrap_or(u32::MAX)).unwrap_or('a'),
+        );
         assert!(sender.send(Event::Key(KeyEvent::new(code, KeyModifiers::empty()))));
 
         // Input-to-paint: from "the event is queued" to "the frame is

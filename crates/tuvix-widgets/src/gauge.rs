@@ -65,16 +65,19 @@ impl Default for Gauge {
 
 impl Gauge {
     /// A gauge at zero.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// A gauge at `percent` (clamped to 0..=100).
+    #[must_use]
     pub fn percent(percent: u16) -> Self {
         Self::new().ratio(f64::from(percent.min(100)) / 100.0)
     }
 
     /// A gauge at `ratio` (clamped to 0.0..=1.0; NaN reads as 0.0).
+    #[must_use]
     pub fn ratio(mut self, ratio: f64) -> Self {
         self.ratio = if ratio.is_nan() {
             0.0
@@ -85,24 +88,28 @@ impl Gauge {
     }
 
     /// Overrides the label (default: `{:.0}%` of the ratio).
+    #[must_use]
     pub fn label<T: Into<Line>>(mut self, label: T) -> Self {
         self.label = Some(label.into());
         self
     }
 
     /// Sets the style of the filled portion of the bar.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Toggles eighth-block precision for the end column (default on).
+    #[must_use]
     pub fn use_unicode(mut self, value: bool) -> Self {
         self.use_unicode = value;
         self
     }
 
     /// Wraps the gauge in a block; the bar fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -134,6 +141,13 @@ impl Gauge {
         }
 
         let filled_width = f64::from(gauge_area.width) * self.ratio;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "the ratio is clamped to [0.0, 1.0] by the constructor, \
+                      so the filled width is non-negative and below the \
+                      gauge width; std has no lossless f64-to-u16 step"
+        )]
         let end = gauge_area.x + filled_width.floor() as u16;
         for y in gauge_area.y..gauge_area.bottom() {
             for x in gauge_area.x..end {
@@ -142,6 +156,12 @@ impl Gauge {
                 }
             }
             if self.use_unicode && self.ratio < 1.0 && end < gauge_area.right() {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "fract() is in [0.0, 1.0), so the eighth index is \
+                              in [0, 8]; std has no lossless f64-to-usize step"
+                )]
                 let index = (filled_width.fract() * 8.0).round() as usize;
                 if index > 0
                     && let Some(cell) = buffer.get_mut(end, y)
@@ -179,6 +199,7 @@ impl Widget for Gauge {
 
 impl Gauge {
     /// Maps the theme onto the gauge: the `gauge` slot styles the fill.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.gauge;
         self

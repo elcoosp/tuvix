@@ -48,12 +48,14 @@ impl ListItem {
     }
 
     /// Sets the style layered under the item's lines and spans.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Number of display rows this item occupies.
+    #[must_use]
     pub fn height(&self) -> usize {
         self.text.height()
     }
@@ -114,12 +116,14 @@ pub struct ListState {
 
 impl ListState {
     /// Creates a state with the given initial selection.
+    #[must_use]
     pub fn with_selected(mut self, selected: Option<usize>) -> Self {
         self.selected = selected;
         self
     }
 
     /// The selected item index, if any.
+    #[must_use]
     pub fn selected(&self) -> Option<usize> {
         self.selected
     }
@@ -206,18 +210,21 @@ impl List {
     }
 
     /// Wraps the list in a block; items fill the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// Sets the base style of the list area.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Sets the style patched over the selected item's rows.
+    #[must_use]
     pub fn highlight_style(mut self, style: Style) -> Self {
         self.highlight_style = style;
         self
@@ -225,6 +232,7 @@ impl List {
 
     /// Sets the marker written in front of the selected item (and spaces
     /// of the same width in front of every other row, so columns align).
+    #[must_use]
     pub fn highlight_symbol(mut self, symbol: impl Into<Cow<'static, str>>) -> Self {
         self.highlight_symbol = Some(symbol.into());
         self
@@ -295,7 +303,7 @@ impl List {
                 if row >= height {
                     break;
                 }
-                let y = list_area.y + row as u16;
+                let y = list_area.y + u16::try_from(row).unwrap_or(u16::MAX);
                 let mut x = list_area.x;
 
                 if gutter_width > 0 {
@@ -355,6 +363,7 @@ impl RenderWidget for List {
 impl List {
     /// Maps the theme onto the list: the `highlight` slot styles the
     /// selected row.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.highlight_style = theme.highlight;
         self

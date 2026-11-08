@@ -29,10 +29,17 @@ use crate::event::to_tuvix_event;
 /// script their own.
 pub trait EventPoller: Send + 'static {
     /// Waits up to `timeout` for an event to become available.
+    ///
+    /// # Errors
+    /// Returns the underlying `io::Error` when the event source fails
+    /// (for example a closed terminal descriptor).
     fn poll(&mut self, timeout: Duration) -> io::Result<bool>;
 
     /// Reads one native event. Only called right after a `poll` that
     /// returned `Ok(true)`.
+    ///
+    /// # Errors
+    /// Returns the underlying `io::Error` when the event cannot be read.
     fn read(&mut self) -> io::Result<CrosstermEvent>;
 }
 
@@ -80,11 +87,17 @@ pub struct CrosstermEvents {
 impl CrosstermEvents {
     /// Spawns the crossterm reader thread and returns it paired with the
     /// stream of translated tuvix events.
+    ///
+    /// # Errors
+    /// Returns the `io::Error` from spawning the reader thread.
     pub fn spawn() -> io::Result<(Self, EventStream)> {
         Self::spawn_with(CrosstermPoller)
     }
 
     /// Like [`spawn`](Self::spawn) but with a scripted poller (tests).
+    ///
+    /// # Errors
+    /// Returns the `io::Error` from spawning the reader thread.
     pub fn spawn_with(poller: impl EventPoller) -> io::Result<(Self, EventStream)> {
         let (sender, stream) = event_channel();
         let stop = Arc::new(AtomicBool::new(false));
@@ -105,6 +118,7 @@ impl CrosstermEvents {
 
     /// A handle for injecting synthetic events into the stream (tests,
     /// app-internal signals).
+    #[must_use]
     pub fn sender(&self) -> &EventSender {
         &self.sender
     }

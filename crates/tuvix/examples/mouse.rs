@@ -62,7 +62,7 @@ fn main() -> Result<()> {
 
     let (mut reader, mut events) = CrosstermEvents::spawn()?;
     let lines = generate_log(120);
-    let content_height = lines.len() as u16;
+    let content_height = u16::try_from(lines.len()).unwrap_or(u16::MAX);
     let mut app = App {
         keymap: key_bindings(),
         mousemap: mouse_bindings(),
@@ -146,7 +146,12 @@ impl RenderWidget for LogView<'_> {
 
     fn render(self, area: Rect, buf: &mut Buffer, _state: &mut ()) {
         for (index, line) in self.lines.iter().enumerate() {
-            buf.set_string(area.x, area.y + index as u16, line, Style::new());
+            buf.set_string(
+                area.x,
+                area.y + u16::try_from(index).unwrap_or(u16::MAX),
+                line,
+                Style::new(),
+            );
         }
     }
 }
@@ -175,7 +180,10 @@ fn draw_dashboard(frame: &mut Frame, app: &mut App) {
     log_block.render(body, &mut *frame.buffer);
     app.hits.push(Region::Log, log_inner);
     let scroll = Scrollable::new(LogView { lines: &app.lines })
-        .content(Size::new(64, app.lines.len() as u16))
+        .content(Size::new(
+            64,
+            u16::try_from(app.lines.len()).unwrap_or(u16::MAX),
+        ))
         .scrollbar(Scrollbar::default());
     RenderWidget::render(scroll, log_inner, &mut *frame.buffer, &mut app.viewport);
 

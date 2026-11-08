@@ -6,7 +6,7 @@
 //! - `+`/`-` grow or shrink the sample the chart is pinned to,
 //! - `Ctrl+q` quits.
 //!
-//! Run with: cargo run -p tuvix --example data_view
+//! Run with: cargo run -p tuvix --example `data_view`
 
 use std::io::Result;
 use std::time::Duration;

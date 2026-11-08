@@ -68,6 +68,7 @@ pub enum InputMode {
 
 impl InputMode {
     /// The sequences that switch this mode on.
+    #[must_use]
     pub fn enable_sequences(&self) -> Vec<Cow<'static, str>> {
         match *self {
             InputMode::KittyKeyboard(flags) => vec![Cow::Owned(format!("\x1b[>{}u", flags.bits()))],
@@ -89,6 +90,7 @@ impl InputMode {
     }
 
     /// The sequences that switch this mode off.
+    #[must_use]
     pub fn disable_sequences(&self) -> Vec<Cow<'static, str>> {
         match *self {
             InputMode::KittyKeyboard(_) => vec![Cow::Borrowed("\x1b[<1u")],
@@ -116,16 +118,19 @@ pub struct InputTransition {
 
 impl InputTransition {
     /// Sequences to write to switch the transition's modes on.
+    #[must_use]
     pub fn enable_sequences(&self) -> &[Cow<'static, str>] {
         &self.enable
     }
 
     /// Sequences to write to switch the transition's modes off.
+    #[must_use]
     pub fn disable_sequences(&self) -> &[Cow<'static, str>] {
         &self.disable
     }
 
     /// Whether the transition carries no sequences at all.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.enable.is_empty() && self.disable.is_empty()
     }
@@ -171,6 +176,7 @@ pub struct InputStack {
 
 impl InputStack {
     /// Creates an empty stack.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -212,16 +218,19 @@ impl InputStack {
     }
 
     /// The currently pushed modes, most recently pushed last.
+    #[must_use]
     pub fn modes(&self) -> &[InputMode] {
         &self.modes
     }
 
     /// Number of pushed modes.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.modes.len()
     }
 
     /// Whether no modes are pushed.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.modes.is_empty()
     }

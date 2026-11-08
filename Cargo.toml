@@ -64,3 +64,19 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 # ANSI/README terms inside rustdoc would require backticks everywhere.
 doc_markdown = "allow"
+# The run-batched diff is one walk with four soundness rules
+# (`DiffRuns::next` in `tuvix-core`): splitting it into helpers would
+# hide the invariants the wide-character tests pin.
+too_many_lines = "allow"
+# `impl_interpolate_int` is one macro for every integer width:
+# `i64`/`u64`/`usize` have no `From<f64>`, so the explicit `as f64`
+# cast is the only uniform form.
+cast_lossless = "allow"
+# Machine-generated golden easing samples (M13, `tests/m13_motion.rs`)
+# are pinned at full precision; the shortest round-trip form still
+# needs 16+ digits for the sine and elastic curves.
+unreadable_literal = "allow"
+# `BarChart::paint_value` threads the loop-local bar geometry (width,
+# bottom row, height) plus the resolved style and the buffer; a params
+# struct would add names without adding meaning.
+too_many_arguments = "allow"

@@ -1,7 +1,7 @@
-//! M9 benchmarks: the time-travel DevTools surfaces.
+//! M9 benchmarks: the time-travel `DevTools` surfaces.
 //!
 //! Targets are recorded in docs/BENCHMARKS.md. The scrub path is the
-//! DevTools story's latency: reconstructing any recorded frame into a
+//! `DevTools` story's latency: reconstructing any recorded frame into a
 //! renderable grid must be far below a frame budget. The B11 gate
 //! (scrub latency + recording overhead) lives in `tests/bench_gates.rs`.
 

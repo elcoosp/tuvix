@@ -57,23 +57,27 @@ pub struct Bar {
 
 impl Bar {
     /// Creates a bar for the given value.
+    #[must_use]
     pub fn new(value: u64) -> Self {
         Self::default().value(value)
     }
 
     /// Sets the bar's value.
+    #[must_use]
     pub fn value(mut self, value: u64) -> Self {
         self.value = value;
         self
     }
 
     /// Sets the under-bar label.
+    #[must_use]
     pub fn label(mut self, label: impl Into<Line>) -> Self {
         self.label = Some(label.into());
         self
     }
 
     /// Overrides the text printed above the bar.
+    #[must_use]
     pub fn text_value(mut self, text_value: impl Into<Cow<'static, str>>) -> Self {
         self.text_value = Some(text_value.into());
         self
@@ -81,6 +85,7 @@ impl Bar {
 
     /// Sets the style patched over the group and chart styles for the
     /// bar cells.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -88,6 +93,7 @@ impl Bar {
 
     /// Sets the style patched over the bar cells' style for the value
     /// text.
+    #[must_use]
     pub fn value_style(mut self, style: Style) -> Self {
         self.value_style = style;
         self
@@ -136,6 +142,7 @@ impl BarGroup {
     }
 
     /// Sets the group label.
+    #[must_use]
     pub fn label(mut self, label: impl Into<Line>) -> Self {
         self.label = Some(label.into());
         self
@@ -143,6 +150,7 @@ impl BarGroup {
 
     /// Sets the style patched over the chart style for the group's bar
     /// cells.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -208,12 +216,14 @@ impl BarChart {
     }
 
     /// Appends a group to the chart.
+    #[must_use]
     pub fn group(mut self, group: BarGroup) -> Self {
         self.groups.push(group);
         self
     }
 
     /// Appends several groups to the chart.
+    #[must_use]
     pub fn groups<T, I>(mut self, groups: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -224,48 +234,56 @@ impl BarChart {
     }
 
     /// Pins the maximum of the scale instead of the data maximum.
+    #[must_use]
     pub fn max(mut self, max: u64) -> Self {
         self.max = Some(max);
         self
     }
 
     /// Sets the width of one bar in columns (default 2).
+    #[must_use]
     pub fn bar_width(mut self, bar_width: u16) -> Self {
         self.bar_width = bar_width;
         self
     }
 
     /// Sets the gap between bars of one group in columns (default 1).
+    #[must_use]
     pub fn bar_gap(mut self, bar_gap: u16) -> Self {
         self.bar_gap = bar_gap;
         self
     }
 
     /// Sets the gap between groups in columns (default 1).
+    #[must_use]
     pub fn group_gap(mut self, group_gap: u16) -> Self {
         self.group_gap = group_gap;
         self
     }
 
     /// Sets the base style of the bar cells.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Sets the base style of the value text above the bars.
+    #[must_use]
     pub fn value_style(mut self, style: Style) -> Self {
         self.value_style = style;
         self
     }
 
     /// Sets the base style of the bar and group labels.
+    #[must_use]
     pub fn label_style(mut self, style: Style) -> Self {
         self.label_style = style;
         self
     }
 
     /// Wraps the chart in a block; bars fill the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -380,7 +398,8 @@ impl BarChart {
                     .value
                     .saturating_mul(rows)
                     .saturating_div(max)
-                    .min(rows) as u16;
+                    .min(rows);
+                let height = u16::try_from(height).unwrap_or(u16::MAX);
                 for row in 0..height {
                     let y = bar_bottom - 1 - row;
                     for column in 0..bar_width {
@@ -402,7 +421,6 @@ impl BarChart {
     /// The value text sits in the free row above the bar top, centered
     /// in the bar columns; skipped at the ceiling or when wider than
     /// the bar.
-    #[allow(clippy::too_many_arguments)]
     fn paint_value(
         &self,
         placed: &PlacedBar<'_>,
@@ -569,6 +587,7 @@ impl Widget for BarChart {
 impl BarChart {
     /// Maps the theme onto the chart: the `sparkline` slot styles the
     /// bars, the `axis` slot the bar and group labels.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.sparkline;
         self.label_style = theme.axis;

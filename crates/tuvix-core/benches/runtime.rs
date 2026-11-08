@@ -44,7 +44,8 @@ fn bench_runtime(c: &mut Criterion) {
         b.iter(|| {
             let (sender, mut stream) = event_channel();
             for code in 0..BATCH {
-                let ch = char::from_u32((65 + (code % 26)) as u32).unwrap_or('a');
+                let ch = char::from_u32(u32::try_from(65 + (code % 26)).unwrap_or(u32::MAX))
+                    .unwrap_or('a');
                 black_box(sender.send(key_event(KeyCode::Char(ch))));
             }
             let mut received = 0_u64;

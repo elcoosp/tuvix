@@ -69,7 +69,8 @@ unsafe impl GlobalAlloc for CountingAlloc {
         layout: std::alloc::Layout,
         new_size: usize,
     ) -> *mut u8 {
-        let delta = new_size as isize - layout.size() as isize;
+        let delta = isize::try_from(new_size).unwrap_or(isize::MAX)
+            - isize::try_from(layout.size()).unwrap_or(isize::MAX);
         ALLOCATED.fetch_add(delta.unsigned_abs(), Ordering::Relaxed);
         // SAFETY: verbatim delegation; see the crate safety argument.
         unsafe { System.realloc(pointer, layout, new_size) }

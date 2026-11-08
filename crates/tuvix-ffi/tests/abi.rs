@@ -62,7 +62,10 @@ fn apply_then_snapshot_then_read_back() {
         let needed = usize::try_from(-needed).unwrap();
         let mut scratch = vec![0u8; needed];
         let written = tvx_buffer_snapshot(handle, scratch.as_mut_ptr(), scratch.len());
-        assert_eq!(written, needed as i64);
+        assert_eq!(
+            written,
+            i64::try_from(needed).expect("the scratch length fits an i64")
+        );
         let decoded = decode_snapshot(&scratch).unwrap();
         assert_eq!(decoded.area.width, 20);
         assert_eq!(decoded.get(0, 1).unwrap().symbol.as_str(), "h");
@@ -75,7 +78,7 @@ fn apply_then_snapshot_then_read_back() {
         let mut ansi = vec![0u8; ansi_needed];
         assert_eq!(
             tvx_buffer_render_ansi(handle, ansi.as_mut_ptr(), ansi.len()),
-            ansi_needed as i64
+            i64::try_from(ansi_needed).expect("the ansi length fits an i64")
         );
         let ansi = String::from_utf8(ansi).expect("the encoder emits UTF-8 only");
         assert!(ansi.contains("hello"), "ansi render: {ansi:?}");

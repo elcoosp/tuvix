@@ -46,18 +46,24 @@ fn random_char(rng: &mut Lcg) -> char {
         0 => '汉',
         1 => '字',
         2 => '·',
-        3 => char::from(b'a' + rng.range(26) as u8),
-        _ => char::from(b'0' + rng.range(10) as u8),
+        3 => char::from(b'a' + u8::try_from(rng.range(26)).unwrap_or(0)),
+        _ => char::from(b'0' + u8::try_from(rng.range(10)).unwrap_or(0)),
     }
 }
 
 fn random_style(rng: &mut Lcg) -> Style {
-    let mut style = Style::new().fg(PALETTE[rng.range(PALETTE.len() as u32) as usize]);
+    let mut style = Style::new().fg(PALETTE[usize::try_from(
+        rng.range(u32::try_from(PALETTE.len()).unwrap_or(u32::MAX)),
+    )
+    .unwrap_or(0)]);
     if rng.range(3) == 0 {
         style = style.add_modifier(Modifier::BOLD);
     }
     if rng.range(3) == 0 {
-        style = style.bg(PALETTE[rng.range(PALETTE.len() as u32) as usize]);
+        style = style.bg(PALETTE[usize::try_from(
+            rng.range(u32::try_from(PALETTE.len()).unwrap_or(u32::MAX)),
+        )
+        .unwrap_or(0)]);
     }
     style
 }
@@ -74,8 +80,8 @@ fn diff_soundness_under_random_mutation_sequences() {
         match rng.range(6) {
             // Random styled write, often containing wide glyphs.
             0..=2 => {
-                let x = rng.range(u32::from(size.width)) as u16;
-                let y = rng.range(u32::from(size.height)) as u16;
+                let x = u16::try_from(rng.range(u32::from(size.width))).unwrap_or(u16::MAX);
+                let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
                 let len = rng.range(8) as usize;
                 let word: String = (0..len).map(|_| random_char(&mut rng)).collect();
                 let style = random_style(&mut rng);
@@ -83,17 +89,18 @@ fn diff_soundness_under_random_mutation_sequences() {
             }
             // Style patch over a random region.
             3 => {
-                let width = rng.range(u32::from(size.width) + 1) as u16;
-                let height = rng.range(u32::from(size.height) + 1) as u16;
-                let x = rng.range(u32::from(size.width)) as u16;
-                let y = rng.range(u32::from(size.height)) as u16;
+                let width = u16::try_from(rng.range(u32::from(size.width) + 1)).unwrap_or(u16::MAX);
+                let height =
+                    u16::try_from(rng.range(u32::from(size.height) + 1)).unwrap_or(u16::MAX);
+                let x = u16::try_from(rng.range(u32::from(size.width))).unwrap_or(u16::MAX);
+                let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
                 let area = Rect::new(x, y, width, height);
                 let style = random_style(&mut rng);
                 truth.set_style(area, style);
             }
             // Clear a random row (pair-aware, like a widget would).
             4 => {
-                let y = rng.range(u32::from(size.height)) as u16;
+                let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
                 let row = Rect::new(0, y, size.width, 1);
                 truth.clear(row);
             }

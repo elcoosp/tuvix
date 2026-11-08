@@ -82,6 +82,10 @@ impl core::fmt::Display for MarkupError {
 
 impl core::error::Error for MarkupError {}
 
+///
+/// # Errors
+/// Returns [`MarkupError`] when the input violates the markup
+/// grammar: unknown tag, mismatched closing tag, or invalid escape.
 /// Parses one line of markup into a [`Line`].
 ///
 /// Regions do not span newlines: a tag opened before a `\n` is
@@ -103,6 +107,10 @@ pub fn parse_line(input: &str) -> Result<Line, MarkupError> {
     Ok(Line::from_spans(spans))
 }
 
+///
+/// # Errors
+/// Returns [`MarkupError`] when the input violates the markup
+/// grammar: unknown tag, mismatched closing tag, or invalid escape.
 /// Parses multi-line markup into a [`Text`], one [`Line`] per `\n`.
 ///
 /// Every line is parsed independently (styles do not carry across
@@ -125,6 +133,10 @@ pub fn parse_text(input: &str) -> Result<Text, MarkupError> {
     Ok(Text::from_lines(lines))
 }
 
+///
+/// # Errors
+/// Returns [`MarkupError`] when the input violates the markup
+/// grammar: unknown tag, mismatched closing tag, or invalid escape.
 /// Parses markup into a flat sequence of spans.
 ///
 /// Adjacent text is merged into one span per region; empty regions

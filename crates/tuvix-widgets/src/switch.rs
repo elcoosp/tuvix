@@ -70,30 +70,35 @@ impl Switch {
     }
 
     /// The state the app owns; `true` renders the on-position track.
+    #[must_use]
     pub fn on(mut self, on: bool) -> Self {
         self.on = on;
         self
     }
 
     /// The base style of the label.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// The style of the track while on (patched over the base style).
+    #[must_use]
     pub fn on_style(mut self, style: Style) -> Self {
         self.on_style = style;
         self
     }
 
     /// The style of the track while off (default: dimmed).
+    #[must_use]
     pub fn off_style(mut self, style: Style) -> Self {
         self.off_style = style;
         self
     }
 
     /// Wraps the switch in a block; the row fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -101,6 +106,7 @@ impl Switch {
 
     /// Maps the theme: the `text` slot styles the label, the `accent`
     /// slot the on-track and the `muted` slot the off-track.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.text;
         self.on_style = theme.accent;

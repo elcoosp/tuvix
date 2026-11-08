@@ -1,5 +1,5 @@
-//! M6 interaction showcase: Tabs, Input fields, LineGauge and the
-//! Clear + Rect::centered popup pattern over Flex layouts. Keys:
+//! M6 interaction showcase: Tabs, Input fields, `LineGauge` and the
+//! Clear + `Rect::centered` popup pattern over Flex layouts. Keys:
 //! - `Tab`/`Shift+Tab` switch the focused field,
 //! - arrows move the cursor, `Ctrl+Left`/`Ctrl+Right` jump by words,
 //!   `Home`/`End` jump to the edges, `Backspace`/`Delete` edit, every
@@ -117,7 +117,9 @@ fn draw_form(frame: &mut Frame, app: &mut App) {
 
     // Footer: how full the focused field is, as a one-line gauge.
     let focused_field = &app.fields[app.focused];
-    let filled = f64::from(focused_field.state.value().chars().count() as u16) / 24.0;
+    let filled =
+        f64::from(u16::try_from(focused_field.state.value().chars().count()).unwrap_or(u16::MAX))
+            / 24.0;
     let gauge = LineGauge::default()
         .ratio(filled)
         .label(focused_field.title.to_owned())

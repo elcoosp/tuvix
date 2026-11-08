@@ -1,5 +1,5 @@
 //! M3 integration gate: the widget family through the whole render
-//! stack (Terminal + TestBackend), the unified `RenderWidget` contract
+//! stack (Terminal + `TestBackend`), the unified `RenderWidget` contract
 //! for stateful widgets, and cross-frame selection navigation.
 
 use tuvix_core::backend::TestBackend;
@@ -61,7 +61,7 @@ fn dashboard_renders_through_the_terminal_stack() {
     assert!(rendered.contains("row-a"), "table rows missing");
 }
 
-/// The RenderWidget contract: one method drives every stateful widget.
+/// The `RenderWidget` contract: one method drives every stateful widget.
 #[test]
 fn render_widget_contract_drives_the_stateful_family() {
     fn paint<W: RenderWidget>(

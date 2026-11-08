@@ -34,10 +34,17 @@ use crate::event::to_tuvix_event;
 /// A source of native termion events, abstracted for testability.
 pub trait EventPoller: Send + 'static {
     /// Waits up to `timeout` for an event to become available.
+    ///
+    /// # Errors
+    /// Returns the underlying `io::Error` when the event source fails
+    /// (for example a closed stdin descriptor).
     fn poll(&mut self, timeout: Duration) -> io::Result<bool>;
 
     /// Reads one native event. Only called right after a `poll` that
     /// returned `Ok(true)`.
+    ///
+    /// # Errors
+    /// Returns the underlying `io::Error` when the event cannot be read.
     fn read(&mut self) -> io::Result<TermionEvent>;
 }
 
@@ -150,6 +157,7 @@ impl std::fmt::Debug for StdinPoller {
 impl StdinPoller {
     /// Starts the stdin pump thread. The thread is named, exits at EOF and
     /// pushes every byte it reads into the shared queue.
+    #[must_use]
     pub fn new() -> Self {
         let queue = Arc::new(ByteQueue::new());
         let thread_queue = Arc::clone(&queue);
@@ -283,11 +291,17 @@ pub struct TermionEvents {
 impl TermionEvents {
     /// Spawns the termion reader thread and returns it paired with the
     /// stream of translated tuvix events.
+    ///
+    /// # Errors
+    /// Returns the `io::Error` from spawning the reader thread.
     pub fn spawn() -> io::Result<(Self, EventStream)> {
         Self::spawn_with(StdinPoller::new())
     }
 
     /// Like [`spawn`](Self::spawn) but with a scripted poller (tests).
+    ///
+    /// # Errors
+    /// Returns the `io::Error` from spawning the reader thread.
     pub fn spawn_with(poller: impl EventPoller) -> io::Result<(Self, EventStream)> {
         let (sender, stream) = event_channel();
         let stop = Arc::new(AtomicBool::new(false));
@@ -308,6 +322,7 @@ impl TermionEvents {
 
     /// A handle for injecting synthetic events into the stream (tests,
     /// app-internal signals).
+    #[must_use]
     pub fn sender(&self) -> &EventSender {
         &self.sender
     }
@@ -409,7 +424,7 @@ mod tests {
     }
 
     /// Waits (bounded) for the reader thread to deliver through the queue:
-    /// try_next is non-blocking, so tests must not race the worker.
+    /// `try_next` is non-blocking, so tests must not race the worker.
     fn wait_until(predicate: impl Fn() -> bool, description: &str) {
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
         while std::time::Instant::now() < deadline {

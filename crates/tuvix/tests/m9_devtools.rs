@@ -1,10 +1,10 @@
-//! The M9 differential gates: end-to-end DevTools behavior over the
+//! The M9 differential gates: end-to-end `DevTools` behavior over the
 //! real terminal pipeline.
 //!
 //! - recorded frames reconstruct byte-identically (screen round trip);
 //! - the session timeline interleaves input events with the frames they
 //!   produced, and bounded rings stay replay-safe;
-//! - the scheduler + session recorder compose (the DevTools loop);
+//! - the scheduler + session recorder compose (the `DevTools` loop);
 //! - golden sessions: export -> import -> diff is the identity.
 
 use std::time::Duration;

@@ -34,6 +34,7 @@ impl Marker {
     ///
     /// [`Marker::Braille`] degrades to the [`Marker::Dot`] glyph here;
     /// its sub-cell grid only exists in the canvas.
+    #[must_use]
     pub fn cell_symbol(self) -> &'static str {
         match self {
             Self::Dot | Self::Braille => "•",

@@ -73,6 +73,7 @@ pub struct ScrollbarState {
 
 impl ScrollbarState {
     /// Creates a state for content of `content_length` units.
+    #[must_use]
     pub fn new(content_length: usize) -> Self {
         Self {
             content_length,
@@ -101,16 +102,19 @@ impl ScrollbarState {
     }
 
     /// The stored scroll position.
+    #[must_use]
     pub fn get_position(&self) -> usize {
         self.position
     }
 
     /// The stored content length.
+    #[must_use]
     pub fn get_content_length(&self) -> usize {
         self.content_length
     }
 
     /// The stored viewport content length.
+    #[must_use]
     pub fn get_viewport_content_length(&self) -> usize {
         self.viewport_content_length
     }
@@ -162,6 +166,7 @@ impl Default for Scrollbar {
 
 impl Scrollbar {
     /// Creates a scrollbar for the orientation, with its default glyphs.
+    #[must_use]
     pub fn new(orientation: ScrollbarOrientation) -> Self {
         let (track, thumb, begin, end) = orientation.default_symbols();
         Self {
@@ -178,64 +183,75 @@ impl Scrollbar {
     }
 
     /// Overrides the track glyph (`None` hides the track cells).
+    #[must_use]
     pub fn track_symbol(mut self, symbol: Option<&'static str>) -> Self {
         self.track_symbol = symbol;
         self
     }
 
     /// Overrides the thumb glyph.
+    #[must_use]
     pub fn thumb_symbol(mut self, symbol: &'static str) -> Self {
         self.thumb_symbol = symbol;
         self
     }
 
     /// Overrides the begin glyph (`None` removes the begin cell).
+    #[must_use]
     pub fn begin_symbol(mut self, symbol: Option<&'static str>) -> Self {
         self.begin_symbol = symbol;
         self
     }
 
     /// Overrides the end glyph (`None` removes the end cell).
+    #[must_use]
     pub fn end_symbol(mut self, symbol: Option<&'static str>) -> Self {
         self.end_symbol = symbol;
         self
     }
 
     /// Sets the style of the track cells.
+    #[must_use]
     pub fn track_style(mut self, style: Style) -> Self {
         self.track_style = style;
         self
     }
 
     /// Sets the style of the thumb cells.
+    #[must_use]
     pub fn thumb_style(mut self, style: Style) -> Self {
         self.thumb_style = style;
         self
     }
 
     /// Sets the style of the begin glyph.
+    #[must_use]
     pub fn begin_style(mut self, style: Style) -> Self {
         self.begin_style = style;
         self
     }
 
     /// Sets the style of the end glyph.
+    #[must_use]
     pub fn end_style(mut self, style: Style) -> Self {
         self.end_style = style;
         self
     }
 
     /// The configured begin glyph (for layout math and assertions).
+    #[must_use]
     pub fn begin_glyph(&self) -> Option<&'static str> {
         self.begin_symbol
     }
 
     /// The configured end glyph (for layout math and assertions).
+    #[must_use]
     pub fn end_glyph(&self) -> Option<&'static str> {
         self.end_symbol
     }
 
     /// The configured orientation.
+    #[must_use]
     pub fn orientation(&self) -> ScrollbarOrientation {
         self.orientation
     }
@@ -352,6 +368,7 @@ impl RenderWidget for Scrollbar {
 impl Scrollbar {
     /// Maps the theme onto the scrollbar: the `scrollbar` slot styles the
     /// track; the thumb inverts it so it stays visible over the track.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.track_style = theme.scrollbar;
         self.thumb_style = theme.scrollbar.add_modifier(Modifier::REVERSED);

@@ -43,6 +43,7 @@ pub struct Wrap {
 
 impl Wrap {
     /// A wrapping policy with the given trim behavior.
+    #[must_use]
     pub fn trim(trim: bool) -> Self {
         Self { trim }
     }
@@ -66,6 +67,7 @@ impl Wrap {
 /// 5. Styles are preserved: consecutive same-style graphemes re-group
 ///    into spans; the source line's style and alignment carry over.
 /// 6. Empty source lines stay empty (one blank display line).
+#[must_use]
 pub fn wrap_line(line: &Line, max_width: u16, trim: bool) -> Vec<Line> {
     if max_width == 0 {
         return Vec::new();
@@ -125,7 +127,10 @@ impl<'a> Wrapper<'a> {
     }
 
     fn width_of(glyphs: &[(String, Style)]) -> u16 {
-        glyphs.iter().map(|(g, _)| g.width() as u16).sum()
+        glyphs
+            .iter()
+            .map(|(g, _)| u16::try_from(g.width()).unwrap_or(u16::MAX))
+            .sum()
     }
 
     /// Groups consecutive same-style glyphs into spans and pushes a line.
@@ -153,7 +158,7 @@ impl<'a> Wrapper<'a> {
         let mut rest: Vec<(String, Style)> = Vec::new();
         let mut rest_width = 0_u16;
         for (glyph, style) in glyphs {
-            let width = glyph.width() as u16;
+            let width = u16::try_from(glyph.width()).unwrap_or(u16::MAX);
             if rest_width + width > self.max_width {
                 self.emit(&rest);
                 rest = Vec::new();
@@ -261,18 +266,21 @@ impl Paragraph {
     }
 
     /// Sets the base style layered under every line and span.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Overrides the alignment of every line without its own.
+    #[must_use]
     pub fn alignment(mut self, alignment: Alignment) -> Self {
         self.alignment = Some(alignment);
         self
     }
 
     /// Enables word wrapping with the given policy.
+    #[must_use]
     pub fn wrap(mut self, wrap: Wrap) -> Self {
         self.wrap = Some(wrap);
         self
@@ -280,6 +288,7 @@ impl Paragraph {
 
     /// Sets the scroll offsets: `state.x` columns off the left edge,
     /// `state.y` display lines off the top edge.
+    #[must_use]
     pub fn scroll(mut self, scroll: ScrollState) -> Self {
         self.scroll = scroll;
         self
@@ -307,7 +316,9 @@ impl Paragraph {
         };
 
         for (index, line) in display.iter().skip(usize::from(scroll_y)).enumerate() {
-            let y = area.y.saturating_add(index as u16);
+            let y = area
+                .y
+                .saturating_add(u16::try_from(index).unwrap_or(u16::MAX));
             if y >= area.bottom() {
                 break;
             }
@@ -368,11 +379,11 @@ fn render_line_with_x_skip(
     for span in &line.spans {
         let style = line_style.patch(span.style);
         for grapheme in span.content.graphemes(true) {
-            let width = grapheme.width() as u16;
+            let width = u16::try_from(grapheme.width()).unwrap_or(u16::MAX);
             if width == 0 {
                 continue;
             }
-            let screen_pos = content_col as i32 - i32::from(skip_x);
+            let screen_pos = i32::try_from(content_col).unwrap_or(i32::MAX) - i32::from(skip_x);
             content_col += u32::from(width);
             if screen_pos + i32::from(width) <= 0 {
                 continue;
@@ -380,7 +391,7 @@ fn render_line_with_x_skip(
             if screen_pos < 0 {
                 continue;
             }
-            let screen_pos = screen_pos as u16;
+            let screen_pos = u16::try_from(screen_pos).unwrap_or(u16::MAX);
             if screen_pos >= max_width {
                 break;
             }
@@ -427,6 +438,7 @@ impl Widget for Paragraph {
 
 impl Paragraph {
     /// Maps the theme onto the paragraph: the `text` slot styles the text.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.text;
         self

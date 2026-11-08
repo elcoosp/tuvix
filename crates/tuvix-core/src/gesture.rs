@@ -168,6 +168,7 @@ impl Default for GestureConfig {
 
 impl GestureConfig {
     /// A config with a custom double-click window.
+    #[must_use]
     pub fn new(double_click_interval: Duration) -> Self {
         Self {
             double_click_interval,
@@ -193,6 +194,7 @@ impl Default for GestureRecognizer {
 
 impl GestureRecognizer {
     /// A recognizer with `config`.
+    #[must_use]
     pub fn new(config: GestureConfig) -> Self {
         Self {
             config,
@@ -300,11 +302,13 @@ impl GestureRecognizer {
     }
 
     /// Whether a button is currently held.
+    #[must_use]
     pub fn is_pressed(&self) -> bool {
         self.pressed.is_some()
     }
 
     /// Whether the active press has become a drag.
+    #[must_use]
     pub fn is_dragging(&self) -> bool {
         self.dragging
     }

@@ -38,6 +38,7 @@ impl RestoreSpec {
     }
 
     /// The captured modes, in push order.
+    #[must_use]
     pub fn modes(&self) -> &[InputMode] {
         &self.modes
     }
@@ -220,7 +221,7 @@ mod tests {
     mod panic_hook {
         use super::*;
 
-        /// Runs `panic!("tuvix-hook-test")` under catch_unwind (the hook
+        /// Runs `panic!("tuvix-hook-test")` under `catch_unwind` (the hook
         /// still runs — that is what we assert on).
         fn trigger_panic() {
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

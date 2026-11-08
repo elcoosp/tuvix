@@ -74,6 +74,7 @@ pub enum TickOutcome {
 
 impl TickOutcome {
     /// Whether the tick produced a committed frame.
+    #[must_use]
     pub fn is_rendered(self) -> bool {
         matches!(self, Self::Rendered)
     }
@@ -188,6 +189,10 @@ impl<B: Backend> Scheduler<B> {
         self.cancellations
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the tick's draw or flush
+    /// fails.
     /// Runs one scheduler step with `render` as the frame closure.
     ///
     /// The decision order is the architecture's: input first, then the
@@ -199,6 +204,10 @@ impl<B: Backend> Scheduler<B> {
         self.tick_inner(None, render)
     }
 
+    ///
+    /// # Errors
+    /// Propagates the backend's error when the tick's draw or flush
+    /// fails.
     /// Runs one scheduler step whose frame is cancellable: when `token`
     /// was cancelled (by input, on another thread) before the pass, the
     /// frame is abandoned with zero terminal I/O.

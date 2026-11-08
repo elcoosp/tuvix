@@ -1,4 +1,4 @@
-//! LineGauge: a single-row gauge drawn with box-drawing lines.
+//! `LineGauge`: a single-row gauge drawn with box-drawing lines.
 //!
 //! The label sits on the left, then the bar fills the rest of the row:
 //! filled columns are `━` in the gauge style, the rest is `─` in the
@@ -39,16 +39,19 @@ pub struct LineGauge {
 
 impl LineGauge {
     /// A gauge at zero.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// A gauge at `percent` (clamped to 0..=100).
+    #[must_use]
     pub fn percent(percent: u16) -> Self {
         Self::new().ratio(f64::from(percent.min(100)) / 100.0)
     }
 
     /// A gauge at `ratio` (clamped to 0.0..=1.0; NaN reads as 0.0).
+    #[must_use]
     pub fn ratio(mut self, ratio: f64) -> Self {
         self.ratio = if ratio.is_nan() {
             0.0
@@ -59,6 +62,7 @@ impl LineGauge {
     }
 
     /// Overrides the label (default: `{:.0}%` of the ratio).
+    #[must_use]
     pub fn label<T: Into<Line>>(mut self, label: T) -> Self {
         self.label = Some(label.into());
         self
@@ -66,18 +70,21 @@ impl LineGauge {
 
     /// Sets the style of the filled portion of the bar; the unfilled
     /// portion carries the same style dimmed.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Wraps the gauge in a block; the row fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// Maps the theme onto the gauge: the `gauge` slot styles the fill.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.gauge;
         self
@@ -134,6 +141,13 @@ impl LineGauge {
             return;
         }
         let bar_width = right - bar_start;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "the ratio is clamped to [0.0, 1.0] by the constructor, \
+                      so the filled width is non-negative and below the \
+                      bar width; std has no lossless f64-to-u16 step"
+        )]
         let filled = (f64::from(bar_width) * self.ratio).floor() as u16;
         let dimmed = self.style.add_modifier(Modifier::DIM);
         for column in bar_start..bar_start + filled {

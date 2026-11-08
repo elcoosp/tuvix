@@ -234,6 +234,7 @@ impl Layout {
     }
 
     /// Inserts `spacing` empty cells between consecutive segments.
+    #[must_use]
     pub fn spacing(mut self, spacing: u16) -> Self {
         self.spacing = spacing;
         self
@@ -256,6 +257,7 @@ impl Layout {
     /// .areas(&area);
     /// assert_eq!((left.x, right.x), (0, 30));
     /// ```
+    #[must_use]
     pub fn flex(mut self, flex: Flex) -> Self {
         self.flex = flex;
         self
@@ -300,7 +302,7 @@ impl Layout {
             .constraints
             .iter()
             .map(|c| match c {
-                Constraint::Min(m) => u32::from((*m).min(avail as u16)),
+                Constraint::Min(m) => u32::from((*m).min(u16::try_from(avail).unwrap_or(u16::MAX))),
                 _ => 0,
             })
             .collect();
@@ -372,7 +374,7 @@ impl Layout {
         let total: u32 = sizes.iter().sum();
         let leftover = avail.saturating_sub(total);
         let (lead, gaps) = self.placement(count, leftover);
-        let lead = lead.min(u32::from(u16::MAX)) as u16;
+        let lead = u16::try_from(lead).unwrap_or(u16::MAX);
         let start = match self.direction {
             Direction::Vertical => area.y,
             Direction::Horizontal => area.x,
@@ -380,7 +382,7 @@ impl Layout {
         let mut placed = Vec::with_capacity(count);
         let mut cursor = start.saturating_add(lead);
         for (index, &size) in sizes.iter().enumerate() {
-            let size = size.min(u32::from(u16::MAX)) as u16;
+            let size = u16::try_from(size).unwrap_or(u16::MAX);
             let rect = match self.direction {
                 Direction::Vertical => Rect::new(area.x, cursor, area.width, size),
                 Direction::Horizontal => Rect::new(cursor, area.y, size, area.height),
@@ -389,7 +391,7 @@ impl Layout {
             // The trailing edge rides in the gap vector as one extra
             // entry after the last segment.
             let gap = gaps.get(index).copied().unwrap_or(0);
-            let gap = gap.min(u32::from(u16::MAX)) as u16;
+            let gap = u16::try_from(gap).unwrap_or(u16::MAX);
             cursor = cursor.saturating_add(size).saturating_add(gap);
         }
         placed
@@ -413,7 +415,7 @@ impl Layout {
                 if count <= 1 {
                     return (0, Vec::new());
                 }
-                let slots = (count - 1) as u32;
+                let slots = u32::try_from(count - 1).unwrap_or(u32::MAX);
                 let base = leftover / slots;
                 let remainder = (leftover % slots) as usize;
                 let gaps = (0..count - 1)
@@ -422,7 +424,7 @@ impl Layout {
                 (0, gaps)
             }
             Flex::SpaceAround => {
-                let slots = 2 * count as u32;
+                let slots = 2 * u32::try_from(count).unwrap_or(u32::MAX / 2);
                 let side = leftover / slots;
                 let remainder = leftover - slots * side;
                 let mut gaps = vec![2 * side + spacing; count.saturating_sub(1)];
@@ -430,7 +432,7 @@ impl Layout {
                 (side, gaps)
             }
             Flex::SpaceEvenly => {
-                let slots = count as u32 + 1;
+                let slots = u32::try_from(count).unwrap_or(u32::MAX - 1) + 1;
                 let each = leftover / slots;
                 let remainder = leftover - slots * each;
                 let mut gaps = vec![spacing + each; count.saturating_sub(1)];
@@ -469,6 +471,9 @@ impl Layout {
         *budget = 0;
     }
 
+    ///
+    /// # Panics
+    /// Panics when the layout's constraint count differs from `N`.
     /// Splits `area` into exactly the number of constraints as a fixed-size
     /// array; panics when the lengths differ.
     ///
@@ -489,8 +494,9 @@ fn distribute_equally(sizes: &mut [u32], indices: &[usize], budget: u32) {
     if indices.is_empty() {
         return;
     }
-    let share = budget / indices.len() as u32;
-    let remainder = (budget % indices.len() as u32) as usize;
+    let share = budget / u32::try_from(indices.len()).unwrap_or(u32::MAX);
+    let remainder = usize::try_from(budget % u32::try_from(indices.len()).unwrap_or(u32::MAX))
+        .unwrap_or(usize::MAX);
     for (position, &index) in indices.iter().enumerate() {
         let extra = u32::from(position < remainder);
         sizes[index] += share + extra;

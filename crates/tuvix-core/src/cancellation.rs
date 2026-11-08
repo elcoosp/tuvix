@@ -59,12 +59,14 @@ pub struct CancellationToken {
 
 impl CancellationToken {
     /// Creates a token that is not cancelled.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Derives a child token: it cancels when `self` cancels, but
     /// cancelling it does not affect `self` or any sibling.
+    #[must_use]
     pub fn child(&self) -> Self {
         Self {
             state: Arc::new(CancelState {
@@ -84,6 +86,7 @@ impl CancellationToken {
     ///
     /// Cost is one atomic load per chain link; the intended chain depths
     /// are two or three links, so the walk is a handful of nanoseconds.
+    #[must_use]
     pub fn is_cancelled(&self) -> bool {
         let mut current: Option<&Arc<CancelState>> = Some(&self.state);
         while let Some(state) = current {
@@ -95,6 +98,10 @@ impl CancellationToken {
         false
     }
 
+    ///
+    /// # Errors
+    /// Returns `Err(Cancelled)` when the token, or any ancestor it was
+    /// forked from, has been cancelled; `Ok(())` lets the pass continue.
     /// The stage-boundary form of [`is_cancelled`](Self::is_cancelled):
     /// `Err(Cancelled)` aborts the pass, `Ok(())` continues it.
     pub fn check(&self) -> Result<(), Cancelled> {

@@ -49,7 +49,7 @@ impl Lcg {
 }
 
 fn corpus_glyph(rng: &mut Lcg) -> &'static str {
-    CORPUS[rng.range(CORPUS.len() as u32) as usize]
+    CORPUS[usize::try_from(rng.range(u32::try_from(CORPUS.len()).unwrap_or(u32::MAX))).unwrap_or(0)]
 }
 
 fn corpus_char(rng: &mut Lcg) -> char {
@@ -58,7 +58,7 @@ fn corpus_char(rng: &mut Lcg) -> char {
         0 => '汉',
         1 => '文',
         2 => 'ｱ',
-        3 => char::from(b'a' + rng.range(26) as u8),
+        3 => char::from(b'a' + u8::try_from(rng.range(26)).unwrap_or(0)),
         _ => '❤',
     }
 }
@@ -108,16 +108,16 @@ fn apply_mutation(
     match rng.range(7) {
         // Write a corpus glyph at a random position.
         0 | 1 => {
-            let x = rng.range(u32::from(size.width)) as u16;
-            let y = rng.range(u32::from(size.height)) as u16;
+            let x = u16::try_from(rng.range(u32::from(size.width))).unwrap_or(u16::MAX);
+            let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
             let glyph = corpus_glyph(rng);
             let style = random_style(rng);
             truth.set_string(x, y, glyph, style);
         }
         // Write a narrow run that overlaps wide pairs.
         2 => {
-            let x = rng.range(u32::from(size.width)) as u16;
-            let y = rng.range(u32::from(size.height)) as u16;
+            let x = u16::try_from(rng.range(u32::from(size.width))).unwrap_or(u16::MAX);
+            let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
             let len = 1 + rng.range(6) as usize;
             let word: String = (0..len).map(|_| corpus_char(rng)).collect();
             let style = random_style(rng);
@@ -125,24 +125,25 @@ fn apply_mutation(
         }
         // Overwrite with a corpus glyph (wide over narrow and back).
         3 => {
-            let x = rng.range(u32::from(size.width.saturating_sub(1))) as u16;
-            let y = rng.range(u32::from(size.height)) as u16;
+            let x = u16::try_from(rng.range(u32::from(size.width.saturating_sub(1))))
+                .unwrap_or(u16::MAX);
+            let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
             let glyph = corpus_glyph(rng);
             let style = random_style(rng);
             truth.set_string(x, y, glyph, style);
         }
         // Clear a random row through the pair-repairing path.
         4 => {
-            let y = rng.range(u32::from(size.height)) as u16;
+            let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
             let row = Rect::new(0, y, size.width, 1);
             truth.clear(row);
         }
         // Clear a random cell region.
         5 => {
-            let x = rng.range(u32::from(size.width)) as u16;
-            let y = rng.range(u32::from(size.height)) as u16;
-            let w = rng.range(u32::from(size.width) + 1) as u16;
-            let h = rng.range(u32::from(size.height) + 1) as u16;
+            let x = u16::try_from(rng.range(u32::from(size.width))).unwrap_or(u16::MAX);
+            let y = u16::try_from(rng.range(u32::from(size.height))).unwrap_or(u16::MAX);
+            let w = u16::try_from(rng.range(u32::from(size.width) + 1)).unwrap_or(u16::MAX);
+            let h = u16::try_from(rng.range(u32::from(size.height) + 1)).unwrap_or(u16::MAX);
             let area = Rect::new(x, y, w, h);
             truth.clear(area);
         }

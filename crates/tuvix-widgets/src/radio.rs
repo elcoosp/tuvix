@@ -1,4 +1,4 @@
-//! RadioGroup: an exclusive-choice list, one row per option.
+//! `RadioGroup`: an exclusive-choice list, one row per option.
 //!
 //! The items and the selected index are the app's data; the
 //! [`RadioGroup`] widget is the paint configuration (styles, marker
@@ -72,36 +72,42 @@ impl RadioGroup {
     }
 
     /// The selected option index; `None` selects nothing.
+    #[must_use]
     pub fn select(mut self, index: Option<usize>) -> Self {
         self.select = index;
         self
     }
 
     /// The base style of every unselected row.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// The style of the selected row's marker and label.
+    #[must_use]
     pub fn selected_style(mut self, style: Style) -> Self {
         self.selected_style = style;
         self
     }
 
     /// The marker rendered on the selected row (default `◉`).
+    #[must_use]
     pub fn selected_symbol<T: Into<Span>>(mut self, symbol: T) -> Self {
         self.selected_symbol = symbol.into();
         self
     }
 
     /// The marker rendered on every unselected row (default `○`).
+    #[must_use]
     pub fn unselected_symbol<T: Into<Span>>(mut self, symbol: T) -> Self {
         self.unselected_symbol = symbol.into();
         self
     }
 
     /// Wraps the group in a block; rows fill the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -109,6 +115,7 @@ impl RadioGroup {
 
     /// Maps the theme: the `text` slot styles the rows, the `highlight`
     /// slot the selected one.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.text;
         self.selected_style = theme.highlight;
@@ -134,7 +141,7 @@ impl RadioGroup {
         }
         let right = list_area.right();
         for (index, item) in self.items.iter().enumerate() {
-            let row = list_area.y + index as u16;
+            let row = list_area.y + u16::try_from(index).unwrap_or(u16::MAX);
             if row >= list_area.bottom() {
                 break;
             }

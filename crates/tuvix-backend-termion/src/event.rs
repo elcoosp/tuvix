@@ -121,16 +121,15 @@ mod tests {
     use super::*;
     use termion::event::Key as TKey;
 
-    #[allow(clippy::unnecessary_wraps)] // mirrors the Option-returning bridge
-    fn key(code: KeyCode, modifiers: KeyModifiers) -> Option<Event> {
-        Some(Event::Key(KeyEvent::new(code, modifiers)))
+    fn key(code: KeyCode, modifiers: KeyModifiers) -> Event {
+        Event::Key(KeyEvent::new(code, modifiers))
     }
 
     #[test]
     fn plain_characters_map_without_modifiers() {
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Char('q'))),
-            key(KeyCode::Char('q'), KeyModifiers::empty())
+            Some(key(KeyCode::Char('q'), KeyModifiers::empty()))
         );
     }
 
@@ -139,15 +138,15 @@ mod tests {
         // termion reports both \r and \n as Char('\n').
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Char('\n'))),
-            key(KeyCode::Enter, KeyModifiers::empty())
+            Some(key(KeyCode::Enter, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Char('\t'))),
-            key(KeyCode::Tab, KeyModifiers::empty())
+            Some(key(KeyCode::Tab, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Backspace)),
-            key(KeyCode::Backspace, KeyModifiers::empty())
+            Some(key(KeyCode::Backspace, KeyModifiers::empty()))
         );
     }
 
@@ -155,11 +154,11 @@ mod tests {
     fn modified_characters_carry_their_modifier() {
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Ctrl('c'))),
-            key(KeyCode::Char('c'), KeyModifiers::CONTROL)
+            Some(key(KeyCode::Char('c'), KeyModifiers::CONTROL))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Alt('x'))),
-            key(KeyCode::Char('x'), KeyModifiers::ALT)
+            Some(key(KeyCode::Char('x'), KeyModifiers::ALT))
         );
     }
 
@@ -167,15 +166,15 @@ mod tests {
     fn modified_arrows_carry_their_modifier() {
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::ShiftLeft)),
-            key(KeyCode::Left, KeyModifiers::SHIFT)
+            Some(key(KeyCode::Left, KeyModifiers::SHIFT))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::CtrlDown)),
-            key(KeyCode::Down, KeyModifiers::CONTROL)
+            Some(key(KeyCode::Down, KeyModifiers::CONTROL))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::AltUp)),
-            key(KeyCode::Up, KeyModifiers::ALT)
+            Some(key(KeyCode::Up, KeyModifiers::ALT))
         );
     }
 
@@ -183,39 +182,39 @@ mod tests {
     fn navigation_and_function_keys_map() {
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Home)),
-            key(KeyCode::Home, KeyModifiers::empty())
+            Some(key(KeyCode::Home, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::CtrlEnd)),
-            key(KeyCode::End, KeyModifiers::CONTROL)
+            Some(key(KeyCode::End, KeyModifiers::CONTROL))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::PageUp)),
-            key(KeyCode::PageUp, KeyModifiers::empty())
+            Some(key(KeyCode::PageUp, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::BackTab)),
-            key(KeyCode::BackTab, KeyModifiers::empty())
+            Some(key(KeyCode::BackTab, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Delete)),
-            key(KeyCode::Delete, KeyModifiers::empty())
+            Some(key(KeyCode::Delete, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Insert)),
-            key(KeyCode::Insert, KeyModifiers::empty())
+            Some(key(KeyCode::Insert, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::F(5))),
-            key(KeyCode::F(5), KeyModifiers::empty())
+            Some(key(KeyCode::F(5), KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Esc)),
-            key(KeyCode::Esc, KeyModifiers::empty())
+            Some(key(KeyCode::Esc, KeyModifiers::empty()))
         );
         assert_eq!(
             to_tuvix_event(&termion::event::Event::Key(TKey::Null)),
-            key(KeyCode::Null, KeyModifiers::empty())
+            Some(key(KeyCode::Null, KeyModifiers::empty()))
         );
     }
 

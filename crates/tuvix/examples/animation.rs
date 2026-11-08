@@ -64,6 +64,17 @@ fn main() -> Result<()> {
     main_app()
 }
 
+/// Gauge percentage from the eased value.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the eased value is clamped to [0.0, 1.0] before the percent \
+              scaling, so the result is a non-negative 0..=100 integer"
+)]
+fn gauge_percent(value: f64) -> u16 {
+    (value.clamp(0.0, 1.0) * 100.0).round() as u16
+}
+
 fn main_app() -> Result<()> {
     let mut runner = try_init()?;
 
@@ -212,6 +223,11 @@ fn draw(frame: &mut Frame, animator: &Animator<&'static str, f64>, app: &App) {
     frame.buffer.set_string(2, status.y, mode_line, mode_style);
 
     // The gallery: one row per curve, each bar eased by its own tween.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "row scaling is display math over a tiny catalog count; \
+                  f64 is the easing domain by design"
+    )]
     let rows = CATALOG.len() as f64;
     let name_width: usize = 11;
     for (index, (name, _)) in CATALOG.iter().enumerate() {
@@ -247,7 +263,14 @@ fn draw(frame: &mut Frame, animator: &Animator<&'static str, f64>, app: &App) {
         .min(RAIL);
         // Overshoot clamps at the rail; the shape of the settle is the
         // curve's signature.
-        let fill = (value.clamp(0.0, 1.0) * bar_width as f64).round() as usize;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "the eased value is clamped to [0.0, 1.0] and scaled by \
+                      the rail width, so the fill is a non-negative row count"
+        )]
+        let fill = (value.clamp(0.0, 1.0) * f64::from(u16::try_from(bar_width).unwrap_or(u16::MAX)))
+            .round() as usize;
         let rail: String = "█".repeat(fill);
         let bar_x = u16::try_from(name_width + 3).unwrap_or(58);
         frame
@@ -258,7 +281,7 @@ fn draw(frame: &mut Frame, animator: &Animator<&'static str, f64>, app: &App) {
     // The gauge loops forever while the app runs.
     let gauge_value = animator.value(&"gauge").unwrap_or(0.0);
     Widget::render(
-        Gauge::percent((gauge_value.clamp(0.0, 1.0) * 100.0).round() as u16)
+        Gauge::percent(gauge_percent(gauge_value))
             .block(Block::bordered().title("infinite loop — InOutCubic there and back")),
         gauge_area,
         &mut *frame.buffer,

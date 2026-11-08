@@ -1,4 +1,4 @@
-//! SessionReplay: replay a recorded session through a deterministic app.
+//! `SessionReplay`: replay a recorded session through a deterministic app.
 //!
 //! The M9 recorder captures the *screen the user saw* and the input that
 //! produced it; this module closes the loop the architecture's §5.8
@@ -100,32 +100,38 @@ pub struct ReplayReport {
 
 impl ReplayReport {
     /// Whether every step replayed byte-identically.
+    #[must_use]
     pub fn is_golden(&self) -> bool {
         self.mismatches.is_empty()
     }
 
     /// The number of attempted steps (one per recorded frame).
+    #[must_use]
     pub fn steps(&self) -> usize {
         self.steps
     }
 
     /// The number of byte-identical steps.
+    #[must_use]
     pub fn matched(&self) -> usize {
         self.matched
     }
 
     /// The diverging steps, in frame order.
+    #[must_use]
     pub fn mismatches(&self) -> &[ReplayMismatch] {
         &self.mismatches
     }
 
     /// The first divergence, if any.
+    #[must_use]
     pub fn first_mismatch(&self) -> Option<&ReplayMismatch> {
         self.mismatches.first()
     }
 
     /// Events recorded after the last frame: the app handled them, but no
     /// flushed frame shows their effect, so a replay cannot verify them.
+    #[must_use]
     pub fn unverified_events(&self) -> usize {
         self.unverified_events
     }
@@ -185,6 +191,7 @@ pub struct SessionReplay {
 impl SessionReplay {
     /// Parses a recorder's retained timeline: every frame becomes a step
     /// carrying the events recorded before it.
+    #[must_use]
     pub fn from_recorder(recorder: &SessionRecorder) -> Self {
         let mut steps: Vec<FrameStep> = Vec::new();
         let mut pending: Vec<Event> = Vec::new();
@@ -209,7 +216,12 @@ impl SessionReplay {
         }
     }
 
+    ///
+    /// # Panics
+    /// Panics on an internal invariant break only: `peek` returned an
+    /// event that `next` then failed to yield. Unreachable in practice.
     /// Builds a replay from raw parts (tests and importers).
+    #[must_use]
     pub fn from_parts(frames: Vec<FrameRecord>, events: Vec<InputRecord>) -> Self {
         let mut steps: Vec<FrameStep> = Vec::new();
         let mut pending: Vec<Event> = Vec::new();
@@ -237,6 +249,10 @@ impl SessionReplay {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns [`SessionError`] when the document is not a valid replay
+    /// JSON document: malformed values or an unsupported version.
     /// Parses a session JSON document (the M9 export format) into a
     /// replay. Strict: hand-edited documents fail with byte offsets.
     pub fn from_json(document: &str) -> Result<Self, crate::session::SessionError> {
@@ -244,11 +260,13 @@ impl SessionReplay {
     }
 
     /// The replayable frames, oldest first.
+    #[must_use]
     pub fn frames(&self) -> &[FrameRecord] {
         &self.frames
     }
 
     /// The number of replayable frames.
+    #[must_use]
     pub fn frame_count(&self) -> usize {
         self.frames.len()
     }
@@ -260,6 +278,7 @@ impl SessionReplay {
 
     /// Events recorded after the last frame: delivered to nothing, they
     /// are reported by [`ReplayReport::unverified_events`] after a run.
+    #[must_use]
     pub fn trailing_events(&self) -> usize {
         self.trailing_events
     }
@@ -267,6 +286,7 @@ impl SessionReplay {
     /// The first retained frame parsed back into a live buffer — the
     /// checkpoint a bounded-window replay resumes from (see
     /// [`ReplayStep::seed`]). `None` for an empty session.
+    #[must_use]
     pub fn seed_buffer(&self) -> Option<Buffer> {
         let frame = self.frames.first()?;
         let screen = Screen::from_ansi(&frame.ansi).ok()?;
@@ -274,6 +294,10 @@ impl SessionReplay {
         Some(screen.to_buffer(area))
     }
 
+    ///
+    /// # Errors
+    /// Returns [`ParseError`] when the recorded event stream cannot be
+    /// decoded while stepping through the replay.
     /// Replays the session: for every step the app receives the recorded
     /// events and paints into a fresh blank buffer sized to the
     /// recorded content, and the painted result is compared with the

@@ -49,12 +49,14 @@ impl TableCell {
     }
 
     /// Sets the style layered under the cell's lines and spans.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Number of display rows the cell occupies.
+    #[must_use]
     pub fn height(&self) -> usize {
         self.text.height()
     }
@@ -69,7 +71,9 @@ impl TableCell {
     /// cell's lines and spans.
     pub fn render_with_base(&self, area: Rect, buffer: &mut Buffer, base: Style) {
         for (index, line) in self.text.lines.iter().enumerate() {
-            let y = area.y.saturating_add(index as u16);
+            let y = area
+                .y
+                .saturating_add(u16::try_from(index).unwrap_or(u16::MAX));
             if y >= area.bottom() {
                 break;
             }
@@ -147,6 +151,7 @@ impl TableRow {
     }
 
     /// Sets the style layered under the row's cells.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -178,12 +183,14 @@ pub struct TableState {
 
 impl TableState {
     /// Creates a state with the given initial selection.
+    #[must_use]
     pub fn with_selected(mut self, selected: Option<usize>) -> Self {
         self.selected = selected;
         self
     }
 
     /// The selected row index, if any.
+    #[must_use]
     pub fn selected(&self) -> Option<usize> {
         self.selected
     }
@@ -292,36 +299,42 @@ impl Table {
     }
 
     /// Sets the header row (always visible above the scrolling rows).
+    #[must_use]
     pub fn header(mut self, header: TableRow) -> Self {
         self.header = Some(header);
         self
     }
 
     /// Wraps the table in a block; content fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// Sets the base style of the table area.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Sets the style patched over the header row.
+    #[must_use]
     pub fn header_style(mut self, style: Style) -> Self {
         self.header_style = style;
         self
     }
 
     /// Sets the style layered under every data row.
+    #[must_use]
     pub fn row_style(mut self, style: Style) -> Self {
         self.row_style = style;
         self
     }
 
     /// Sets the style patched over the selected row.
+    #[must_use]
     pub fn highlight_style(mut self, style: Style) -> Self {
         self.highlight_style = style;
         self
@@ -329,12 +342,14 @@ impl Table {
 
     /// Sets the marker written in front of the selected row (and spaces
     /// of the same width in front of every other row, so columns align).
+    #[must_use]
     pub fn highlight_symbol(mut self, symbol: impl Into<String>) -> Self {
         self.highlight_symbol = Some(symbol.into());
         self
     }
 
     /// Sets the gap between columns (default 1).
+    #[must_use]
     pub fn column_spacing(mut self, spacing: u16) -> Self {
         self.column_spacing = spacing;
         self
@@ -363,9 +378,9 @@ impl Table {
             .selected
             .is_some_and(|selected| selected < self.rows.len())
         {
-            self.highlight_symbol
-                .as_ref()
-                .map_or(0, |symbol| symbol.width() as u16)
+            self.highlight_symbol.as_ref().map_or(0, |symbol| {
+                u16::try_from(symbol.width()).unwrap_or(u16::MAX)
+            })
         } else {
             0
         };
@@ -447,10 +462,15 @@ impl Table {
                 buffer.set_stringn(table_area.x, y, symbol.as_str(), gutter_width, base);
             }
             for (cell, column) in table_row.cells.iter().zip(&columns) {
-                let cell_area = Rect::new(column.x, y, column.width, heights[index] as u16);
+                let cell_area = Rect::new(
+                    column.x,
+                    y,
+                    column.width,
+                    u16::try_from(heights[index]).unwrap_or(u16::MAX),
+                );
                 cell.render_with_base(cell_area, buffer, base);
             }
-            y += heights[index] as u16;
+            y += u16::try_from(heights[index]).unwrap_or(u16::MAX);
             row += heights[index];
         }
     }
@@ -467,6 +487,7 @@ impl RenderWidget for Table {
 impl Table {
     /// Maps the theme onto the table: the `title` slot styles the header,
     /// the `highlight` slot styles the selected row.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.header_style = theme.title;
         self.highlight_style = theme.highlight;

@@ -1,10 +1,10 @@
-//! The M9 time-travel DevTools: record a session, scrub it, inspect a
+//! The M9 time-travel `DevTools`: record a session, scrub it, inspect a
 //! historical frame and export it as a replayable golden log.
 //!
 //! This demo drives a headless `TestBackend` app (no terminal modes are
 //! touched): three ticks of a counter app with recorded keystrokes
 //! between them. It then reconstructs any past moment from the timeline,
-//! prints the FrameInspector overlay, and writes the session document to
+//! prints the `FrameInspector` overlay, and writes the session document to
 //! stdout — the artifact a bug report would attach and CI would diff.
 //!
 //! Run with: cargo run -p tuvix --example devtools

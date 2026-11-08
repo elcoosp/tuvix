@@ -61,6 +61,7 @@ pub struct Line {
 
 impl Line {
     /// Creates a line between two points.
+    #[must_use]
     pub fn new(x1: f64, y1: f64, x2: f64, y2: f64, color: Color) -> Self {
         Self {
             x1,
@@ -170,6 +171,7 @@ impl Painter<'_> {
 
     /// Maps a canvas coordinate to dot coordinates; `None` when the point
     /// is outside the bounds or the bounds are degenerate.
+    #[must_use]
     pub fn get_point(&self, x: f64, y: f64) -> Option<(usize, usize)> {
         let [x_min, x_max] = self.x_bounds;
         let [y_min, y_max] = self.y_bounds;
@@ -181,8 +183,17 @@ impl Painter<'_> {
         if x_span <= 0.0 || y_span <= 0.0 {
             return None;
         }
-        let px = ((x - x_min) / x_span * f64::from(self.resolution.0)) as usize;
-        let py = ((y_max - y) / y_span * f64::from(self.resolution.1)) as usize;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "the point is validated against the bounds above, so the \
+                      dot coordinates are non-negative and below the canvas \
+                      resolution; std has no lossless f64-to-usize step"
+        )]
+        let (px, py) = (
+            ((x - x_min) / x_span * f64::from(self.resolution.0)) as usize,
+            ((y_max - y) / y_span * f64::from(self.resolution.1)) as usize,
+        );
         // A point exactly on the max bound clamps to the last dot.
         Some((
             px.min(usize::from(self.resolution.0) - 1),
@@ -319,6 +330,7 @@ impl std::fmt::Debug for Canvas {
 impl Canvas {
     /// Creates a canvas with default bounds `[0.0, 0.0]` and the braille
     /// marker.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             block: None,
@@ -330,30 +342,35 @@ impl Canvas {
     }
 
     /// Sets the x bounds.
+    #[must_use]
     pub fn x_bounds(mut self, bounds: [f64; 2]) -> Self {
         self.x_bounds = bounds;
         self
     }
 
     /// Sets the y bounds.
+    #[must_use]
     pub fn y_bounds(mut self, bounds: [f64; 2]) -> Self {
         self.y_bounds = bounds;
         self
     }
 
     /// Sets the marker (glyph mode) of the grid.
+    #[must_use]
     pub fn marker(mut self, marker: Marker) -> Self {
         self.marker = marker;
         self
     }
 
     /// Wraps the canvas in a block; the grid fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// Sets the drawing closure; it runs on every render.
+    #[must_use]
     pub fn paint<F>(mut self, paint: F) -> Self
     where
         F: Fn(&mut Context) + 'static,
@@ -419,8 +436,8 @@ impl Canvas {
             } else {
                 continue;
             };
-            let x = (cell_index % cells_w) as u16 + canvas_area.x;
-            let y = (cell_index / cells_w) as u16 + canvas_area.y;
+            let x = u16::try_from(cell_index % cells_w).unwrap_or(u16::MAX) + canvas_area.x;
+            let y = u16::try_from(cell_index / cells_w).unwrap_or(u16::MAX) + canvas_area.y;
             if let Some(cell) = buffer.get_mut(x, y) {
                 cell.set_symbol(symbol)
                     .set_style(Style::new().fg(context.colors[cell_index]));
@@ -449,8 +466,8 @@ impl Canvas {
             if col >= usize::from(canvas_area.width) || row >= usize::from(canvas_area.height) {
                 continue;
             }
-            let x = col as u16 + canvas_area.x;
-            let y = row as u16 + canvas_area.y;
+            let x = u16::try_from(col).unwrap_or(u16::MAX) + canvas_area.x;
+            let y = u16::try_from(row).unwrap_or(u16::MAX) + canvas_area.y;
             let mut cursor = x;
             for span in &layer.spans {
                 if cursor >= canvas_area.right() {

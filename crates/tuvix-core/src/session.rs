@@ -4,7 +4,7 @@
 //! M8's [`HistorySink`](crate::preview::HistorySink) captured *what the
 //! screen showed*; this module captures *what happened*: every flushed
 //! frame **and** every input event the app handled, on one timestamped
-//! timeline. The timeline is the raw material of the DevTools story —
+//! timeline. The timeline is the raw material of the `DevTools` story —
 //! scrub to any frame, see which keystrokes produced it, export the
 //! whole session as JSON ([`SessionRecorder::to_json`]) and replay or
 //! golden-test it later.
@@ -108,16 +108,19 @@ pub enum Entry {
 
 impl Entry {
     /// Whether this entry is a frame.
+    #[must_use]
     pub fn is_frame(&self) -> bool {
         matches!(self, Self::Frame(_))
     }
 
     /// Whether this entry is an input event.
+    #[must_use]
     pub fn is_input(&self) -> bool {
         matches!(self, Self::Input(_))
     }
 
     /// The entry's time since the recorder was created.
+    #[must_use]
     pub fn at(&self) -> Duration {
         match self {
             Self::Frame(frame) => frame.at,
@@ -161,6 +164,7 @@ impl SessionRecorder {
     /// Creates a recorder that retains the newest `max_frames` frames
     /// (plus their following input events), evicting older entries when
     /// full. A capacity of 0 is clamped to 1.
+    #[must_use]
     pub fn bounded(max_frames: usize) -> Self {
         Self {
             state: Arc::new(Mutex::new(SessionState {
@@ -175,11 +179,13 @@ impl SessionRecorder {
     }
 
     /// Creates a recorder that keeps every frame and every event.
+    #[must_use]
     pub fn unbounded() -> Self {
         Self::bounded(usize::MAX)
     }
 
     /// The frame retention limit (`usize::MAX` when unbounded).
+    #[must_use]
     pub fn capacity(&self) -> usize {
         self.lock().capacity
     }
@@ -197,22 +203,26 @@ impl SessionRecorder {
     }
 
     /// Time elapsed since the recording started.
+    #[must_use]
     pub fn duration(&self) -> Duration {
         self.lock().started.elapsed()
     }
 
     /// Timeline entries currently retained (frames and input events, in
     /// capture order).
+    #[must_use]
     pub fn len(&self) -> usize {
         self.lock().entries.len()
     }
 
     /// Whether nothing is retained.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Retained frames.
+    #[must_use]
     pub fn frame_count(&self) -> usize {
         self.lock()
             .entries
@@ -222,6 +232,7 @@ impl SessionRecorder {
     }
 
     /// Retained input events.
+    #[must_use]
     pub fn event_count(&self) -> usize {
         self.lock()
             .entries
@@ -231,16 +242,19 @@ impl SessionRecorder {
     }
 
     /// Frames ever captured (retained + evicted).
+    #[must_use]
     pub fn total_frames(&self) -> u64 {
         self.lock().next_frame
     }
 
     /// Frames evicted from the front of the ring so far.
+    #[must_use]
     pub fn dropped_frames(&self) -> u64 {
         self.lock().dropped_frames
     }
 
     /// Input events ever recorded (retained + evicted).
+    #[must_use]
     pub fn total_events(&self) -> u64 {
         let state = self.lock();
         state.dropped_events
@@ -252,21 +266,25 @@ impl SessionRecorder {
     }
 
     /// Input events evicted together with an older frame so far.
+    #[must_use]
     pub fn dropped_events(&self) -> u64 {
         self.lock().dropped_events
     }
 
     /// The retained frame at local `index` (0 = oldest retained frame).
+    #[must_use]
     pub fn frame(&self, index: usize) -> Option<FrameRecord> {
         self.frames().into_iter().nth(index)
     }
 
     /// The most recent retained frame, if any.
+    #[must_use]
     pub fn latest_frame(&self) -> Option<FrameRecord> {
         self.frames().pop()
     }
 
     /// Every retained frame, oldest first.
+    #[must_use]
     pub fn frames(&self) -> Vec<FrameRecord> {
         self.lock()
             .entries
@@ -279,6 +297,7 @@ impl SessionRecorder {
     }
 
     /// Every retained input event, oldest first.
+    #[must_use]
     pub fn events(&self) -> Vec<InputRecord> {
         self.lock()
             .entries
@@ -291,12 +310,14 @@ impl SessionRecorder {
     }
 
     /// The merged timeline, oldest first.
+    #[must_use]
     pub fn entries(&self) -> Vec<Entry> {
         self.lock().entries.iter().cloned().collect()
     }
 
     /// Retained frames captured in the half-open time window
     /// `[from, to)`, oldest first.
+    #[must_use]
     pub fn frames_between(&self, from: Duration, to: Duration) -> Vec<FrameRecord> {
         self.frames()
             .into_iter()
@@ -306,6 +327,7 @@ impl SessionRecorder {
 
     /// Retained input events recorded in the half-open time window
     /// `[from, to)`, oldest first.
+    #[must_use]
     pub fn events_between(&self, from: Duration, to: Duration) -> Vec<InputRecord> {
         self.events()
             .into_iter()
@@ -457,16 +479,19 @@ pub struct SessionDiff {
 
 impl SessionDiff {
     /// Whether the two sessions agree completely.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.frames_changed.is_empty() && self.events_changed.is_empty()
     }
 
     /// The changed (or unmatched) frame numbers, ascending.
+    #[must_use]
     pub fn frames_changed(&self) -> &[u64] {
         &self.frames_changed
     }
 
     /// The changed (or unmatched) input-event positions, ascending.
+    #[must_use]
     pub fn events_changed(&self) -> &[usize] {
         &self.events_changed
     }
@@ -906,7 +931,9 @@ fn key_code_from_json(value: &Json, at: usize) -> Result<KeyCode, SessionError> 
                         }),
                     }
                 }
-                ("f", Json::Number(number)) if *number <= 255 => Ok(KeyCode::F(*number as u8)),
+                ("f", Json::Number(number)) if *number <= 255 => {
+                    Ok(KeyCode::F(u8::try_from(*number).unwrap_or(u8::MAX)))
+                }
                 ("media", Json::String(name)) => media_from(name)
                     .map(KeyCode::Media)
                     .ok_or_else(|| unknown(name)),
@@ -1314,6 +1341,7 @@ impl SessionRecorder {
     /// Only the *retained* entries are exported (a bounded ring's
     /// evictions are summarized by the dropped counters). The document
     /// round-trips exactly through [`SessionRecorder::from_json`].
+    #[must_use]
     pub fn to_json(&self) -> String {
         let state = self.lock();
         let capacity = if state.capacity == usize::MAX {
@@ -1401,7 +1429,7 @@ impl SessionRecorder {
         }
         let capacity = match parsed.get("capacity") {
             None | Some(Json::Null) => usize::MAX,
-            Some(Json::Number(number)) => *number as usize,
+            Some(Json::Number(number)) => usize::try_from(*number).unwrap_or(usize::MAX),
             Some(_) => {
                 return Err(SessionError {
                     at: 0,
@@ -1456,6 +1484,7 @@ impl SessionRecorder {
     /// input events match by position; anything missing, extra or
     /// differing is reported. An empty diff means the two recordings
     /// replayed the same screen sequence.
+    #[must_use]
     pub fn diff(&self, other: &SessionRecorder) -> SessionDiff {
         if Arc::ptr_eq(&self.state, &other.state) {
             return SessionDiff::default();

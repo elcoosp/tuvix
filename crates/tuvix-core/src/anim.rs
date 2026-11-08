@@ -274,25 +274,31 @@ impl Interpolate for f64 {
 }
 
 impl Interpolate for f32 {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "f32 easing is the lossy variant by definition: narrowing \
+                  the f64 coefficient once per lerp call is the documented \
+                  M13 contract, and std has no fallible f64-to-f32 step"
+    )]
     fn lerp(from: Self, to: Self, p: f64) -> Self {
         from + (to - from) * p as f32
     }
 }
 
-macro_rules! impl_interpolate_int {
+macro_rules! impl_interpolate_signed {
     ($($ty:ty),* $(,)?) => {
         $(
-            // One macro for every width: `i64`/`u64`/`usize` have no
-            // `From<f64>`, so the explicit cast is the only uniform form.
-            #[allow(clippy::cast_lossless)]
             impl Interpolate for $ty {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "the saturating float-to-int cast is the M13 lerp \
+                              contract: NaN becomes 0 and overshooting \
+                              coefficients clamp at the type bounds; std has \
+                              no lossless f64-to-int conversion"
+                )]
                 fn lerp(from: Self, to: Self, p: f64) -> Self {
-                    let start = from as f64;
-                    let end = to as f64;
-                    // `f64 as int` casts saturate and map NaN to 0, so
-                    // overshooting coefficients clamp at the type's
-                    // bounds; `round` is half-away-from-zero, which is
-                    // direction-agnostic.
+                    let start = f64::from(from);
+                    let end = f64::from(to);
                     (start + (end - start) * p).round() as Self
                 }
             }
@@ -300,7 +306,83 @@ macro_rules! impl_interpolate_int {
     };
 }
 
-impl_interpolate_int!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
+macro_rules! impl_interpolate_unsigned {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl Interpolate for $ty {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "the saturating float-to-int cast is the M13 lerp \
+                              contract: NaN becomes 0 and overshooting \
+                              coefficients clamp at the type bounds; std has \
+                              no lossless f64-to-int conversion"
+                )]
+                fn lerp(from: Self, to: Self, p: f64) -> Self {
+                    let start = f64::from(from);
+                    let end = f64::from(to);
+                    (start + (end - start) * p).round() as Self
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! impl_interpolate_wide_signed {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl Interpolate for $ty {
+                #[expect(
+                    clippy::cast_precision_loss,
+                    clippy::cast_possible_truncation,
+                    reason = "64-bit integers have no lossless f64 path (no \
+                              `From<i64> for f64`); easing in the f64 domain \
+                              is the documented M13 design, and the \
+                              saturating float-to-int cast is the lerp \
+                              contract"
+                )]
+                fn lerp(from: Self, to: Self, p: f64) -> Self {
+                    let start = from as f64;
+                    let end = to as f64;
+                    (start + (end - start) * p).round() as Self
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! impl_interpolate_wide_unsigned {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl Interpolate for $ty {
+                #[expect(
+                    clippy::cast_precision_loss,
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "64-bit integers have no lossless f64 path (no \
+                              `From<i64> for f64`); easing in the f64 domain \
+                              is the documented M13 design, and the \
+                              saturating float-to-int cast is the lerp \
+                              contract"
+                )]
+                fn lerp(from: Self, to: Self, p: f64) -> Self {
+                    let start = from as f64;
+                    let end = to as f64;
+                    (start + (end - start) * p).round() as Self
+                }
+            }
+        )*
+    };
+}
+
+// One macro per integer family: which cast lints fire depends on the
+// width and signedness of `$ty`, so each family carries exactly the
+// `#[expect]` set its body provably triggers — an unfulfilled expectation
+// is a hard error, keeping the exceptions honest.
+impl_interpolate_signed!(i8, i16, i32);
+impl_interpolate_unsigned!(u8, u16, u32);
+impl_interpolate_wide_signed!(i64, isize);
+impl_interpolate_wide_unsigned!(u64, usize);
 
 impl Interpolate for Color {
     fn lerp(from: Self, to: Self, p: f64) -> Self {
@@ -318,9 +400,17 @@ impl Interpolate for Color {
                 },
             ) => {
                 let blend = |a: u8, b: u8| -> u8 {
-                    (f64::from(a) + (f64::from(b) - f64::from(a)) * p)
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        clippy::cast_sign_loss,
+                        reason = "the blend is clamped to 0.0..=255.0 first, so \
+                                  the cast cannot truncate or lose its sign; \
+                                  std has no lossless f64-to-u8 conversion"
+                    )]
+                    let blended = (f64::from(a) + (f64::from(b) - f64::from(a)) * p)
                         .round()
-                        .clamp(0.0, 255.0) as u8
+                        .clamp(0.0, 255.0) as u8;
+                    blended
                 };
                 Self::Rgb {
                     r: blend(r1, r2),
@@ -520,6 +610,13 @@ impl<T: Interpolate + Copy> Tween<T> {
             cycle -= 1;
             local = d_nanos;
         }
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "the cycle position is a duration ratio in f64 by \
+                      design (docs/BENCHMARKS.md B-scores pin this easing \
+                      domain); u128 nanoseconds exceed the f64 mantissa \
+                      deliberately"
+        )]
         let mut raw = local as f64 / d_nanos as f64;
         if alternating && cycle % 2 == 1 {
             raw = 1.0 - raw;

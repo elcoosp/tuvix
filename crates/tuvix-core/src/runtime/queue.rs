@@ -70,6 +70,7 @@ struct Shared {
 }
 
 /// Creates a sender/stream pair for tuvix events.
+#[must_use]
 pub fn event_channel() -> (EventSender, EventStream) {
     let shared = Arc::new(Shared {
         state: Mutex::new(QueueState {
@@ -95,6 +96,7 @@ pub struct EventSender {
 impl EventSender {
     /// Enqueues `event`, waking the consumer. Returns `false` when the
     /// receiving stream was dropped (the channel is closed).
+    #[must_use]
     pub fn send(&self, event: Event) -> bool {
         let mut state = match self.shared.state.lock() {
             Ok(state) => state,
@@ -109,6 +111,7 @@ impl EventSender {
     }
 
     /// Whether the receiving stream was dropped.
+    #[must_use]
     pub fn is_closed(&self) -> bool {
         match self.shared.state.lock() {
             Ok(state) => state.receiver_dropped,
@@ -197,6 +200,7 @@ impl EventStream {
     }
 
     /// Whether all senders are gone and the queue is drained.
+    #[must_use]
     pub fn is_finished(&self) -> bool {
         let state = match self.shared.state.lock() {
             Ok(state) => state,
@@ -206,6 +210,7 @@ impl EventStream {
     }
 
     /// Number of events currently queued.
+    #[must_use]
     pub fn len(&self) -> usize {
         let state = match self.shared.state.lock() {
             Ok(state) => state,
@@ -215,6 +220,7 @@ impl EventStream {
     }
 
     /// Whether no events are queued.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -336,7 +342,7 @@ mod tests {
             let mut cx = Context::from_waker(&waker);
             // A single live sender: pending, not ended.
             assert_eq!(stream.poll_next(&mut cx), Poll::Pending);
-            sender.send(key(KeyCode::Esc));
+            assert!(sender.send(key(KeyCode::Esc)));
             assert_eq!(
                 stream.poll_next(&mut cx),
                 Poll::Ready(Some(key(KeyCode::Esc)))
@@ -350,8 +356,8 @@ mod tests {
         #[test]
         fn queued_events_survive_sender_drop() {
             let (sender, mut stream) = event_channel();
-            sender.send(key(KeyCode::Char('x')));
-            sender.send(key(KeyCode::Char('y')));
+            assert!(sender.send(key(KeyCode::Char('x'))));
+            assert!(sender.send(key(KeyCode::Char('y'))));
             drop(sender);
             assert_eq!(stream.try_next(), Some(key(KeyCode::Char('x'))));
             assert_eq!(stream.try_next(), Some(key(KeyCode::Char('y'))));
@@ -393,7 +399,7 @@ mod tests {
             let mut first = stream.next_event();
             let mut first = Pin::new(&mut first);
             assert_eq!(first.as_mut().poll(&mut cx), Poll::Pending);
-            sender.send(Event::Resize(10, 5));
+            assert!(sender.send(Event::Resize(10, 5)));
             assert_eq!(
                 first.as_mut().poll(&mut cx),
                 Poll::Ready(Some(Event::Resize(10, 5)))

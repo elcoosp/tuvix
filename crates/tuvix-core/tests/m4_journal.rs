@@ -152,11 +152,12 @@ fn random_op(lcg: &mut Lcg) -> Op {
     ];
     match lcg.below(10) {
         0..=5 => Op::Write {
-            x: lcg.below(u64::from(WIDTH)) as u16,
-            y: lcg.below(u64::from(HEIGHT)) as u16,
-            text: TEXTS[lcg.below(TEXTS.len() as u64) as usize].to_string(),
+            x: u16::try_from(lcg.below(u64::from(WIDTH))).unwrap_or(u16::MAX),
+            y: u16::try_from(lcg.below(u64::from(HEIGHT))).unwrap_or(u16::MAX),
+            text: TEXTS[usize::try_from(lcg.below(TEXTS.len() as u64)).unwrap_or(0)].to_string(),
             style: {
-                let style = Style::new().fg(Color::Indexed(lcg.below(256) as u8));
+                let style =
+                    Style::new().fg(Color::Indexed(u8::try_from(lcg.below(256)).unwrap_or(0)));
                 if lcg.below(2) == 0 {
                     style.add_modifier(Modifier::BOLD)
                 } else {
@@ -166,20 +167,20 @@ fn random_op(lcg: &mut Lcg) -> Op {
         },
         6..=7 => Op::Clear {
             rect: Rect::new(
-                lcg.below(u64::from(WIDTH)) as u16,
-                lcg.below(u64::from(HEIGHT)) as u16,
-                lcg.below(8) as u16,
-                lcg.below(4) as u16,
+                u16::try_from(lcg.below(u64::from(WIDTH))).unwrap_or(u16::MAX),
+                u16::try_from(lcg.below(u64::from(HEIGHT))).unwrap_or(u16::MAX),
+                u16::try_from(lcg.below(8)).unwrap_or(u16::MAX),
+                u16::try_from(lcg.below(4)).unwrap_or(u16::MAX),
             ),
         },
         8 => Op::SetStyle {
             rect: Rect::new(
-                lcg.below(u64::from(WIDTH)) as u16,
-                lcg.below(u64::from(HEIGHT)) as u16,
-                lcg.below(10) as u16,
-                lcg.below(3) as u16,
+                u16::try_from(lcg.below(u64::from(WIDTH))).unwrap_or(u16::MAX),
+                u16::try_from(lcg.below(u64::from(HEIGHT))).unwrap_or(u16::MAX),
+                u16::try_from(lcg.below(10)).unwrap_or(u16::MAX),
+                u16::try_from(lcg.below(3)).unwrap_or(u16::MAX),
             ),
-            style: Style::new().bg(Color::Indexed(lcg.below(256) as u8)),
+            style: Style::new().bg(Color::Indexed(u8::try_from(lcg.below(256)).unwrap_or(0))),
         },
         _ => Op::NoPaint,
     }
@@ -265,8 +266,8 @@ fn persistent_visible_state_matches_the_logical_dom() {
         if step % 97 == 0 {
             // Mid-stream resize: content is lost everywhere, journals flip
             // full, and the model resizes too.
-            let w = WIDTH - (step % 5) as u16;
-            let h = HEIGHT - (step % 3) as u16;
+            let w = WIDTH - u16::try_from(step % 5).unwrap_or(0);
+            let h = HEIGHT - u16::try_from(step % 3).unwrap_or(0);
             terminal.backend_mut().resize(Size::new(w, h));
             dom.resize(Rect::new(0, 0, w, h));
         }

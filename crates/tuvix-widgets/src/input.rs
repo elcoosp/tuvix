@@ -46,22 +46,26 @@ pub struct InputState {
 
 impl InputState {
     /// An empty field.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// The current text.
+    #[must_use]
     pub fn value(&self) -> &str {
         &self.value
     }
 
     /// The cursor as a char index into the value (0 = before the first
     /// character, `value.chars().count()` = after the last).
+    #[must_use]
     pub fn cursor(&self) -> usize {
         self.cursor
     }
 
     /// The char index of the first visible character (the scroll window).
+    #[must_use]
     pub fn display_offset(&self) -> usize {
         self.display_offset
     }
@@ -212,6 +216,7 @@ impl InputState {
     /// The column the cursor occupies relative to the visible window
     /// (the display width of the characters between the window start and
     /// the cursor; control characters count zero columns).
+    #[must_use]
     pub fn visible_cursor_column(&self) -> usize {
         self.value
             .chars()
@@ -278,29 +283,34 @@ impl Default for Input {
 
 impl Input {
     /// A bare input field: default style, no placeholder, no block.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Wraps the field in a block; the text fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// The style of the value text.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// The line rendered while the value is empty.
+    #[must_use]
     pub fn placeholder<T: Into<Line>>(mut self, placeholder: T) -> Self {
         self.placeholder = Some(placeholder.into());
         self
     }
 
     /// The style of the placeholder (default: dimmed).
+    #[must_use]
     pub fn placeholder_style(mut self, style: Style) -> Self {
         self.placeholder_style = style;
         self
@@ -308,6 +318,7 @@ impl Input {
 
     /// Maps the theme: the `text` slot styles the value, the `muted` slot
     /// the placeholder.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.text;
         self.placeholder_style = theme.muted;
@@ -370,6 +381,7 @@ impl Input {
     /// `area` the field was rendered into. The application feeds this to
     /// `Frame::set_cursor_position` while the field is focused; the
     /// position is clamped to the field area.
+    #[must_use]
     pub fn cursor_position(&self, area: Rect, state: &InputState) -> Position {
         let field_area = self.block.as_ref().map_or(area, |block| block.inner(area));
         if field_area.is_empty() {
@@ -377,7 +389,10 @@ impl Input {
         }
         let column = usize::from(field_area.x) + state.visible_cursor_column();
         let max = usize::from(field_area.right().saturating_sub(1));
-        Position::new(column.min(max) as u16, field_area.y)
+        Position::new(
+            u16::try_from(column.min(max)).unwrap_or(u16::MAX),
+            field_area.y,
+        )
     }
 }
 

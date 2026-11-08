@@ -33,8 +33,8 @@ fn text_buffer() -> Buffer {
 /// Scatters `count` single-cell changes across the buffer.
 fn scatter(buffer: &mut Buffer, count: usize) {
     for index in 0..count {
-        let x = ((index * 37 + 11) % usize::from(WIDTH)) as u16;
-        let y = ((index * 53 + 7) % usize::from(HEIGHT)) as u16;
+        let x = u16::try_from((index * 37 + 11) % usize::from(WIDTH)).unwrap_or(u16::MAX);
+        let y = u16::try_from((index * 53 + 7) % usize::from(HEIGHT)).unwrap_or(u16::MAX);
         buffer.set_string(x, y, "X", Style::new().fg(tuvix_core::style::Color::Red));
     }
 }

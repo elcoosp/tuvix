@@ -5,7 +5,7 @@
 //! This example does not touch terminal modes; it just writes a frame and
 //! exits, so it is safe to run anywhere:
 //!
-//! Run with: cargo run -p tuvix --example simple_backend
+//! Run with: cargo run -p tuvix --example `simple_backend`
 
 use std::io::{self, Write};
 

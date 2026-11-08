@@ -66,12 +66,14 @@ impl TreeItem {
     }
 
     /// Appends a child node (builder form).
+    #[must_use]
     pub fn child(mut self, child: TreeItem) -> Self {
         self.children.push(child);
         self
     }
 
     /// Replaces the children with the given ones (builder form).
+    #[must_use]
     pub fn children<I>(mut self, children: I) -> Self
     where
         I: IntoIterator<Item = TreeItem>,
@@ -81,6 +83,7 @@ impl TreeItem {
     }
 
     /// Sets the style layered under the node's text.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -129,6 +132,7 @@ pub struct TreeState {
 
 impl TreeState {
     /// Creates a state with the given initial selection.
+    #[must_use]
     pub fn with_selected<P>(mut self, path: P) -> Self
     where
         P: IntoIterator<Item = usize>,
@@ -138,6 +142,7 @@ impl TreeState {
     }
 
     /// The selected path, if any.
+    #[must_use]
     pub fn selected(&self) -> Option<&[usize]> {
         self.selected.as_deref()
     }
@@ -157,6 +162,7 @@ impl TreeState {
     }
 
     /// Whether the given path is collapsed.
+    #[must_use]
     pub fn is_collapsed(&self, path: &[usize]) -> bool {
         self.collapsed.contains(path)
     }
@@ -328,18 +334,21 @@ impl Tree {
     }
 
     /// Wraps the tree in a block; nodes fill the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// Sets the base style of the tree area.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Sets the style patched over the selected node's row.
+    #[must_use]
     pub fn highlight_style(mut self, style: Style) -> Self {
         self.highlight_style = style;
         self
@@ -378,7 +387,7 @@ impl Tree {
         }
 
         for (row, node) in visible.iter().skip(state.offset).take(height).enumerate() {
-            let y = inner.y + row as u16;
+            let y = inner.y + u16::try_from(row).unwrap_or(u16::MAX);
             let row_style = self.style.patch(node.item.style);
             let row_style = if state.selected.as_ref() == Some(&node.path) {
                 row_style.patch(self.highlight_style)
@@ -432,6 +441,7 @@ impl RenderWidget for Tree {
 impl Tree {
     /// Maps the theme onto the tree: the `highlight` slot styles the
     /// selected row.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.highlight_style = theme.highlight;
         self

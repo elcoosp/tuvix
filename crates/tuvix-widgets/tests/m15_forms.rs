@@ -1,5 +1,5 @@
 //! M15 integration gates: the form family through the whole render
-//! stack (Terminal + TestBackend), the choice flows end to end, the
+//! stack (Terminal + `TestBackend`), the choice flows end to end, the
 //! theme mapping across the four widgets, wide-glyph honesty — and the
 //! B18 form-panel paint budget, measured, not asserted.
 //!

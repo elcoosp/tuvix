@@ -24,8 +24,8 @@ const BINDINGS: usize = 32;
 fn dashboard_hits() -> HitMap<u32> {
     let mut hits: HitMap<u32> = HitMap::new();
     for id in 0..REGIONS {
-        let x = ((id % 40) * 5) as u16;
-        let y = ((id / 40) * 2) as u16;
+        let x = u16::try_from((id % 40) * 5).unwrap_or(u16::MAX);
+        let y = u16::try_from((id / 40) * 2).unwrap_or(u16::MAX);
         hits.push(id, Rect::new(x, y, 5, 2));
     }
     hits
@@ -33,7 +33,7 @@ fn dashboard_hits() -> HitMap<u32> {
 
 fn bound_map() -> MouseMap<u32, u32> {
     let mut map: MouseMap<u32, u32> = MouseMap::new();
-    for id in 0..BINDINGS as u32 {
+    for id in 0..u32::try_from(BINDINGS).unwrap_or(u32::MAX) {
         map.bind(MousePattern::on(id, MouseClass::AnyClick), id);
     }
     map
@@ -74,8 +74,8 @@ fn bench_mouse(c: &mut Criterion) {
         b.iter(|| {
             let mut fresh: HitMap<u32> = HitMap::new();
             for id in 0..REGIONS {
-                let x = ((id % 40) * 5) as u16;
-                let y = ((id / 40) * 2) as u16;
+                let x = u16::try_from((id % 40) * 5).unwrap_or(u16::MAX);
+                let y = u16::try_from((id / 40) * 2).unwrap_or(u16::MAX);
                 fresh.push(id, Rect::new(x, y, 5, 2));
             }
             black_box(fresh)

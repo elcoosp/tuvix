@@ -1,4 +1,4 @@
-//! TextArea: a multi-line text editor widget with bounded undo/redo.
+//! `TextArea`: a multi-line text editor widget with bounded undo/redo.
 //!
 //! The text, cursor, scroll window and the undo/redo stacks live in
 //! [`TextAreaState`]; the [`TextArea`] widget is the paint configuration
@@ -158,6 +158,7 @@ fn char_index_at_display_column(line: &str, target: usize) -> usize {
 
 impl TextAreaState {
     /// An empty one-line document with the cursor at the start.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             lines: vec![String::new()],
@@ -175,44 +176,52 @@ impl TextAreaState {
 
     /// The document lines. At least one line exists; an empty document is
     /// one empty line, not zero lines.
+    #[must_use]
     pub fn lines(&self) -> &[String] {
         &self.lines
     }
 
     /// The document as one string, lines joined with `\n`.
+    #[must_use]
     pub fn text(&self) -> String {
         self.lines.join("\n")
     }
 
     /// The cursor as `(row, col)`: the row index and the char index
     /// within that row.
+    #[must_use]
     pub fn cursor(&self) -> (usize, usize) {
         (self.row, self.col)
     }
 
     /// The first visible row (vertical scroll).
+    #[must_use]
     pub fn row_offset(&self) -> usize {
         self.row_offset
     }
 
     /// The first visible char of every row (horizontal scroll, char
     /// indexed like the cursor).
+    #[must_use]
     pub fn col_offset(&self) -> usize {
         self.col_offset
     }
 
     /// The display column the cursor occupies within its row (the width
     /// of the chars before it; control characters count zero).
+    #[must_use]
     pub fn visible_cursor_column(&self) -> usize {
         display_column_of_char_index(&self.lines[self.row], self.col)
     }
 
     /// Whether an undo step is available.
+    #[must_use]
     pub fn can_undo(&self) -> bool {
         !self.undo.is_empty()
     }
 
     /// Whether a redo step is available.
+    #[must_use]
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
     }
@@ -901,23 +910,27 @@ impl Default for TextArea {
 
 impl TextArea {
     /// A bare text area: default style, no block.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Wraps the area in a block; the text fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// The style of the text.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Maps the theme: the `text` slot styles the content.
+    #[must_use]
     pub fn theme(mut self, theme: &tuvix_core::theme::Theme) -> Self {
         self.style = theme.text;
         self
@@ -943,7 +956,7 @@ impl TextArea {
                 break;
             };
             let byte = byte_of(line, state.col_offset);
-            let y = inner.y + visible_row as u16;
+            let y = inner.y + u16::try_from(visible_row).unwrap_or(u16::MAX);
             buffer.set_stringn(inner.x, y, &line[byte..], inner.width, self.style);
         }
     }
@@ -952,6 +965,7 @@ impl TextArea {
     /// widget was rendered into. The application feeds this to
     /// `Frame::set_cursor_position` while the area is focused; the
     /// position is clamped to the inner area.
+    #[must_use]
     pub fn cursor_position(&self, area: Rect, state: &TextAreaState) -> Position {
         let inner = self.block.as_ref().map_or(area, |block| block.inner(area));
         if inner.is_empty() {
@@ -963,7 +977,10 @@ impl TextArea {
         let row = usize::from(inner.y) + state.row.saturating_sub(state.row_offset);
         let max_x = usize::from(inner.right().saturating_sub(1));
         let max_y = usize::from(inner.bottom().saturating_sub(1));
-        Position::new(column.min(max_x) as u16, row.min(max_y) as u16)
+        Position::new(
+            u16::try_from(column.min(max_x)).unwrap_or(u16::MAX),
+            u16::try_from(row.min(max_y)).unwrap_or(u16::MAX),
+        )
     }
 }
 

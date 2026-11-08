@@ -22,8 +22,8 @@ fn text_buffer() -> Buffer {
 /// Mutates `count` scattered cells across the buffer.
 fn mutate(buffer: &mut Buffer, count: usize) {
     for index in 0..count {
-        let x = ((index * 7 + 3) % WIDTH as usize) as u16;
-        let y = ((index * 5 + 1) % HEIGHT as usize) as u16;
+        let x = u16::try_from((index * 7 + 3) % WIDTH as usize).unwrap_or(u16::MAX);
+        let y = u16::try_from((index * 5 + 1) % HEIGHT as usize).unwrap_or(u16::MAX);
         buffer.set_string(x, y, "X", Style::new());
     }
 }

@@ -192,6 +192,7 @@ pub struct KeyEvent {
 
 impl KeyEvent {
     /// Creates a key-press event with no extra state.
+    #[must_use]
     pub fn new(code: KeyCode, modifiers: KeyModifiers) -> Self {
         Self {
             code,
@@ -202,6 +203,7 @@ impl KeyEvent {
     }
 
     /// Returns `true` when the modifiers of `self` exactly match `modifiers`.
+    #[must_use]
     pub fn modifiers_eq(&self, modifiers: KeyModifiers) -> bool {
         self.modifiers == modifiers
     }

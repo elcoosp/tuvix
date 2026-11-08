@@ -209,7 +209,7 @@ fn control_characters_in_text_are_rejected_with_the_byte_offset() {
         packet.push(0x01);
         packet.extend_from_slice(&1u16.to_le_bytes());
         packet.extend_from_slice(&1u16.to_le_bytes());
-        packet.extend_from_slice(&(text.len() as u16).to_le_bytes());
+        packet.extend_from_slice(&u16::try_from(text.len()).unwrap_or(u16::MAX).to_le_bytes());
         let text_offset = packet.len();
         packet.extend_from_slice(text.as_bytes());
         let error = parse_packets(&packet).unwrap_err();

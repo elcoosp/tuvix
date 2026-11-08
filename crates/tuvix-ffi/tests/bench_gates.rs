@@ -21,8 +21,8 @@ const PACKETS: usize = 20;
 fn batch_packet() -> Vec<u8> {
     let mut writer = PacketWriter::new();
     for index in 0..MUTATIONS_PER_PACKET {
-        let x = ((index * 37 + 11) % usize::from(WIDTH)) as u16;
-        let y = ((index * 53 + 7) % usize::from(HEIGHT)) as u16;
+        let x = u16::try_from((index * 37 + 11) % usize::from(WIDTH)).unwrap_or(u16::MAX);
+        let y = u16::try_from((index * 53 + 7) % usize::from(HEIGHT)).unwrap_or(u16::MAX);
         writer = writer.push(&Mutation::SetText {
             x,
             y,
@@ -84,6 +84,10 @@ fn b15_ffi_mutation_throughput_above_fifty_thousand_per_second() {
 
         tvx_buffer_free(handle);
 
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "throughput reporting is an f64 ratio by definition; the u64/u128 counters exceed the f64 mantissa only far beyond any measured gate"
+        )]
         let per_second = total_mutations as f64 / elapsed.as_secs_f64();
         // The §8 gate 1 budget: more than 50,000 mutations per second.
         assert!(
@@ -91,10 +95,16 @@ fn b15_ffi_mutation_throughput_above_fifty_thousand_per_second() {
             "B15 gate failed: {per_second:.0} mutations/sec (budget 50,000/sec); \
              {total_mutations} mutations took {elapsed:?} ({packet_bytes} bytes per packet)"
         );
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "the ns/mutation report is an f64 ratio by definition; \
+                      the u128/u64 counters exceed the f64 mantissa only \
+                      far beyond any measured gate"
+        )]
+        let ns_per_mutation = elapsed.as_nanos() as f64 / total_mutations as f64;
         println!(
             "B15: {per_second:.0} mutations/sec ({total_mutations} mutations, {elapsed:?}, \
-             {:.1} ns/mutation)",
-            elapsed.as_nanos() as f64 / total_mutations as f64
+             {ns_per_mutation:.1} ns/mutation)"
         );
     }
 }

@@ -45,11 +45,13 @@ pub struct Band {
 
 impl Band {
     /// Number of cells covered by the band.
+    #[must_use]
     pub fn len(&self) -> u16 {
         self.end.saturating_sub(self.start)
     }
 
     /// Returns `true` when the band covers no cells.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.start >= self.end
     }
@@ -71,6 +73,7 @@ pub struct Damage {
 
 impl Damage {
     /// Creates a tracker for a viewport of `width` x `height` cells.
+    #[must_use]
     pub fn viewport(width: u16, height: u16) -> Self {
         Self {
             viewport: Rect::new(0, 0, width, height),
@@ -122,16 +125,19 @@ impl Damage {
 
     /// Upper bound of the damaged area in cells: the sum of band lengths
     /// (bands never overlap within a row).
+    #[must_use]
     pub fn area_upper_bound(&self) -> u64 {
         self.damaged_area
     }
 
     /// Returns `true` when the tracker decided everything must repaint.
+    #[must_use]
     pub fn is_full(&self) -> bool {
         self.full
     }
 
     /// The merged, sorted bands (row-major, then by start column).
+    #[must_use]
     pub fn bands(&self) -> &[Band] {
         &self.bands
     }

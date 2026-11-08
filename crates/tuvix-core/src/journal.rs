@@ -52,6 +52,7 @@ pub struct FrameJournal {
 
 impl FrameJournal {
     /// Creates a journal for a viewport of `width` x `height` cells.
+    #[must_use]
     pub fn viewport(width: u16, height: u16) -> Self {
         Self {
             damage: Damage::viewport(width, height),
@@ -76,23 +77,27 @@ impl FrameJournal {
     }
 
     /// Returns `true` when nothing was painted: the frame is a no-op.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         !self.damage.is_full() && self.damage.bands().is_empty()
     }
 
     /// Returns `true` when the tracker decided the whole viewport changed.
+    #[must_use]
     pub fn is_full(&self) -> bool {
         self.damage.is_full()
     }
 
     /// The merged, sorted row bands recorded so far (row-major, then by
     /// start column).
+    #[must_use]
     pub fn bands(&self) -> &[crate::damage::Band] {
         self.damage.bands()
     }
 
     /// The number of cells the recorded bands cover (an upper bound while
     /// bands keep accumulating; exact once [`FrameJournal::is_full`] flips).
+    #[must_use]
     pub fn area_upper_bound(&self) -> u64 {
         self.damage.area_upper_bound()
     }

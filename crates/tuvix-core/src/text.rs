@@ -80,6 +80,7 @@ impl Span {
     ///
     /// The only entry point for non-`'static` borrows; use [`Span::raw`]
     /// with literals or move an owned `String` in for the free paths.
+    #[must_use]
     pub fn shared(content: &str, style: Style) -> Self {
         Self {
             content: Cow::Owned(content.to_owned()),
@@ -88,6 +89,7 @@ impl Span {
     }
 
     /// Returns the content as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.content
     }
@@ -95,8 +97,9 @@ impl Span {
     /// Display width of the content in terminal columns.
     ///
     /// Wide characters (e.g. CJK ideographs) count as two columns.
+    #[must_use]
     pub fn width(&self) -> u16 {
-        self.content.width() as u16
+        u16::try_from(self.content.width()).unwrap_or(u16::MAX)
     }
 }
 
@@ -155,6 +158,7 @@ impl Line {
     }
 
     /// Creates a line from already-built spans.
+    #[must_use]
     pub fn from_spans(spans: Vec<Span>) -> Self {
         Self {
             spans,
@@ -163,6 +167,7 @@ impl Line {
     }
 
     /// Sets the alignment of the line.
+    #[must_use]
     pub fn alignment(mut self, alignment: Alignment) -> Self {
         self.alignment = Some(alignment);
         self
@@ -211,6 +216,7 @@ impl Text {
     }
 
     /// Creates a text from already-built lines.
+    #[must_use]
     pub fn from_lines(lines: Vec<Line>) -> Self {
         Self {
             lines,
@@ -219,6 +225,7 @@ impl Text {
     }
 
     /// Total number of lines.
+    #[must_use]
     pub fn height(&self) -> usize {
         self.lines.len()
     }

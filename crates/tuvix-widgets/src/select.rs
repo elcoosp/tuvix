@@ -47,27 +47,32 @@ pub struct SelectState {
 
 impl SelectState {
     /// A closed dropdown with nothing selected.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Builder mirror of [`SelectState::set_selected`].
+    #[must_use]
     pub fn with_selected(mut self, selected: Option<usize>) -> Self {
         self.selected = selected;
         self
     }
 
     /// Whether the option list is open.
+    #[must_use]
     pub fn is_open(&self) -> bool {
         self.open
     }
 
     /// The highlighted row (the keyboard/mouse cursor of the open list).
+    #[must_use]
     pub fn highlight(&self) -> usize {
         self.highlight
     }
 
     /// The committed selection, if any.
+    #[must_use]
     pub fn selected(&self) -> Option<usize> {
         self.selected
     }
@@ -188,42 +193,49 @@ impl Select {
     }
 
     /// A caption rendered before the value (`label: value ▾`).
+    #[must_use]
     pub fn label<T: Into<Line>>(mut self, label: T) -> Self {
         self.label = Some(label.into());
         self
     }
 
     /// The line rendered in place of the value while nothing is selected.
+    #[must_use]
     pub fn placeholder<T: Into<Line>>(mut self, placeholder: T) -> Self {
         self.placeholder = Some(placeholder.into());
         self
     }
 
     /// The base style of the trigger and the unhighlighted options.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// The style of the highlighted row of the open list.
+    #[must_use]
     pub fn highlight_style(mut self, style: Style) -> Self {
         self.highlight_style = style;
         self
     }
 
     /// The indicator rendered after the value while closed (default `▾`).
+    #[must_use]
     pub fn indicator_closed<T: Into<Span>>(mut self, indicator: T) -> Self {
         self.indicator_closed = indicator.into();
         self
     }
 
     /// The indicator rendered after the value while open (default `▴`).
+    #[must_use]
     pub fn indicator_open<T: Into<Span>>(mut self, indicator: T) -> Self {
         self.indicator_open = indicator.into();
         self
     }
 
     /// Wraps the dropdown in a block; trigger and list fill the inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -231,6 +243,7 @@ impl Select {
 
     /// Maps the theme: the `text` slot styles the trigger and options,
     /// the `highlight` slot the highlighted row.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.text;
         self.highlight_style = theme.highlight;
@@ -325,7 +338,7 @@ impl Select {
             return;
         }
         for (index, option) in self.options.iter().enumerate() {
-            let option_row = inner.y + 1 + index as u16;
+            let option_row = inner.y + 1 + u16::try_from(index).unwrap_or(u16::MAX);
             if option_row >= inner.bottom() {
                 break;
             }

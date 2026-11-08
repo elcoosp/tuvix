@@ -56,8 +56,9 @@ fn main_app() -> Result<()> {
     let (mut reader, mut events) = CrosstermEvents::spawn()?;
     let keymap = dashboard_keymap();
     let lines = generate_log(160);
-    let content_width = lines.iter().map(String::len).max().unwrap_or(1) as u16;
-    let content_height = lines.len() as u16;
+    let content_width =
+        u16::try_from(lines.iter().map(String::len).max().unwrap_or(1)).unwrap_or(u16::MAX);
+    let content_height = u16::try_from(lines.len()).unwrap_or(u16::MAX);
     let mut app = App {
         keymap,
         focus: FocusRing::with_items([Pane::Log, Pane::Name, Pane::Filter]),
@@ -118,7 +119,12 @@ impl RenderWidget for LogView<'_> {
 
     fn render(self, area: Rect, buf: &mut Buffer, _state: &mut ()) {
         for (index, line) in self.lines.iter().enumerate() {
-            buf.set_string(area.x, area.y + index as u16, line, Style::new());
+            buf.set_string(
+                area.x,
+                area.y + u16::try_from(index).unwrap_or(u16::MAX),
+                line,
+                Style::new(),
+            );
         }
     }
 }
@@ -154,7 +160,7 @@ fn draw_dashboard(frame: &mut Frame, app: &mut App, content_height: u16) {
     log_block.render(log_area, &mut *frame.buffer);
     let scroll = Scrollable::new(LogView { lines: &app.lines })
         .content(Size::new(
-            app.lines.iter().map(String::len).max().unwrap_or(1) as u16,
+            u16::try_from(app.lines.iter().map(String::len).max().unwrap_or(1)).unwrap_or(u16::MAX),
             content_height,
         ))
         .scrollbar(Scrollbar::default());

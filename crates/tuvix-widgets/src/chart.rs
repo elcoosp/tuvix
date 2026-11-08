@@ -82,18 +82,21 @@ impl Dataset {
     }
 
     /// Sets the point glyph.
+    #[must_use]
     pub fn marker(mut self, marker: Marker) -> Self {
         self.marker = marker;
         self
     }
 
     /// Sets how consecutive points connect.
+    #[must_use]
     pub fn graph_type(mut self, graph_type: GraphType) -> Self {
         self.graph_type = graph_type;
         self
     }
 
     /// Sets the style of the painted cells.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -113,17 +116,20 @@ pub struct Axis {
 
 impl Axis {
     /// Creates an axis with `bounds` `[0.0, 0.0]` and no labels.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Sets the data bounds.
+    #[must_use]
     pub fn bounds(mut self, bounds: [f64; 2]) -> Self {
         self.bounds = bounds;
         self
     }
 
     /// Sets the tick labels, spread evenly along the axis.
+    #[must_use]
     pub fn labels<T, I>(mut self, labels: I) -> Self
     where
         T: Into<Line>,
@@ -134,6 +140,7 @@ impl Axis {
     }
 
     /// Sets the axis title.
+    #[must_use]
     pub fn title<T: Into<Line>>(mut self, title: T) -> Self {
         self.title = Some(title.into());
         self
@@ -186,24 +193,28 @@ impl Chart {
     }
 
     /// Sets the x axis.
+    #[must_use]
     pub fn x_axis(mut self, axis: Axis) -> Self {
         self.x_axis = axis;
         self
     }
 
     /// Sets the y axis.
+    #[must_use]
     pub fn y_axis(mut self, axis: Axis) -> Self {
         self.y_axis = axis;
         self
     }
 
     /// Wraps the chart in a block; the plot fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
     }
 
     /// Sets the base style of the chart area.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -265,7 +276,12 @@ impl Chart {
             return None;
         }
         Some((
-            Rect::new(graph_x, chart_area.y, graph_width, graph_height as u16),
+            Rect::new(
+                graph_x,
+                chart_area.y,
+                graph_width,
+                u16::try_from(graph_height).unwrap_or(u16::MAX),
+            ),
             y_label_width,
             x_axis_labeled,
         ))
@@ -379,8 +395,12 @@ impl Chart {
                 graph.y
             } else {
                 graph.y
-                    + (index as u32 * u32::from(graph.height.saturating_sub(1))
-                        / (count as u32 - 1)) as u16
+                    + u16::try_from(
+                        u32::try_from(index).unwrap_or(u32::MAX)
+                            * u32::from(graph.height.saturating_sub(1))
+                            / (u32::try_from(count).unwrap_or(u32::MAX) - 1),
+                    )
+                    .unwrap_or(u16::MAX)
             };
             let label_width = label.width().min(gutter_width);
             let mut x = graph.x.saturating_sub(1 + label_width);
@@ -418,7 +438,9 @@ impl Chart {
                 u32::from(graph.x)
             } else {
                 u32::from(graph.x)
-                    + (index as u32 * u32::from(graph.width.saturating_sub(1)) / (count as u32 - 1))
+                    + (u32::try_from(index).unwrap_or(u32::MAX)
+                        * u32::from(graph.width.saturating_sub(1))
+                        / (u32::try_from(count).unwrap_or(u32::MAX) - 1))
             };
             let label_width = label.width();
             let x = if index == 0 {
@@ -426,7 +448,7 @@ impl Chart {
             } else if index == count - 1 {
                 graph.right().saturating_sub(label_width)
             } else {
-                anchor as u16 + graph.x / 2 - label_width / 2
+                u16::try_from(anchor).unwrap_or(u16::MAX) + graph.x / 2 - label_width / 2
             };
             let mut cursor = x;
             for span in &label.spans {
@@ -461,8 +483,16 @@ impl Chart {
         }
         let px = ((x - x_min) / x_span * f64::from(graph.width - 1)).round();
         let py = ((y_max - y) / y_span * f64::from(graph.height - 1)).round();
-        let px = px.clamp(0.0, f64::from(graph.width - 1)) as i64;
-        let py = py.clamp(0.0, f64::from(graph.height - 1)) as i64;
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "both coordinates are clamped to the graph bounds right \
+                      before the cast, so it cannot truncate or lose its \
+                      sign; std has no lossless f64-to-i64 step"
+        )]
+        let (px, py) = (
+            px.clamp(0.0, f64::from(graph.width - 1)) as i64,
+            py.clamp(0.0, f64::from(graph.height - 1)) as i64,
+        );
         Some((i64::from(graph.x) + px, i64::from(graph.y) + py))
     }
 }
@@ -520,6 +550,7 @@ impl Widget for Chart {
 impl Chart {
     /// Maps the theme onto the chart: the `axis` slot styles the axis
     /// lines and labels.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.axis;
         self

@@ -42,11 +42,13 @@ pub enum DrawOutcome {
 
 impl DrawOutcome {
     /// Whether the frame reached the terminal.
+    #[must_use]
     pub fn is_committed(self) -> bool {
         matches!(self, Self::Committed)
     }
 
     /// Whether the frame was abandoned before any terminal output.
+    #[must_use]
     pub fn is_cancelled(self) -> bool {
         matches!(self, Self::Cancelled)
     }
@@ -70,6 +72,7 @@ pub struct Frame<'a> {
 
 impl Frame<'_> {
     /// The area of this frame (the current terminal viewport).
+    #[must_use]
     pub fn area(&self) -> Rect {
         self.area
     }
@@ -83,6 +86,7 @@ impl Frame<'_> {
     }
 
     /// The cursor position requested by this frame, if any.
+    #[must_use]
     pub fn cursor_position(&self) -> Option<Position> {
         self.cursor_position
     }
@@ -93,6 +97,7 @@ impl Frame<'_> {
     /// the architecture's cooperative-cancellation model): once the token
     /// is cancelled, everything painted so far will be discarded, so
     /// continuing to paint is wasted work.
+    #[must_use]
     pub fn cancellation(&self) -> Option<&CancellationToken> {
         self.cancellation.as_ref()
     }
@@ -176,6 +181,10 @@ impl<B: Backend + core::fmt::Debug> core::fmt::Debug for Terminal<B> {
 }
 
 impl<B: Backend> Terminal<B> {
+    ///
+    /// # Errors
+    /// Returns the backend's error when entering the terminal state
+    /// (alternate screen, raw-mode handshake) fails.
     /// Creates a terminal for `backend`, querying its initial size.
     pub fn new(backend: B) -> Result<Self, B::Error> {
         let size = backend.size()?;
@@ -191,6 +200,10 @@ impl<B: Backend> Terminal<B> {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when entering the persistent
+    /// terminal state fails.
     /// Creates a persistent-DOM terminal for `backend`.
     ///
     /// The paint buffer carries its content across frames (widgets repaint
@@ -263,6 +276,9 @@ impl<B: Backend> Terminal<B> {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the size query fails.
     /// The live size reported by the backend.
     pub fn size(&self) -> Result<Size, B::Error> {
         self.backend.size()
@@ -273,6 +289,10 @@ impl<B: Backend> Terminal<B> {
         self.persistent
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the diff cannot be drawn or
+    /// flushed.
     /// Renders one frame with `render` and flushes only the changed runs.
     ///
     /// In immediate mode the render closure repaints the whole screen into
@@ -285,6 +305,10 @@ impl<B: Backend> Terminal<B> {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the diff cannot be drawn or
+    /// flushed.
     /// Renders one frame that input is allowed to preempt.
     ///
     /// The pass is checked against `token` at the two stage boundaries
@@ -437,6 +461,10 @@ impl<B: Backend> Terminal<B> {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the persistent frame cannot be
+    /// drawn or flushed.
     /// Renders one frame through the frame journal (the M4 path).
     ///
     /// The closure paints over the previous frame's output; the journal
@@ -481,6 +509,10 @@ impl<B: Backend> Terminal<B> {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the persistent frame cannot be
+    /// drawn or flushed.
     /// The journal path with the M8 cancellation contract.
     ///
     /// The same two stage boundaries as [`Terminal::draw_cancellable`], and
@@ -665,6 +697,10 @@ impl<B: Backend> Terminal<B> {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the clear sequence cannot be
+    /// written.
     /// Clears the screen and forgets the buffered content.
     ///
     /// In persistent mode this wipes the DOM: both buffers reset and their
@@ -676,6 +712,10 @@ impl<B: Backend> Terminal<B> {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the OSC 52 sequence cannot be
+    /// written; backends without clipboard support never fail.
     /// Asks the terminal to put `contents` on the system clipboard (OSC
     /// 52). The request is written straight through to the backend — the
     /// terminal may ignore it or prompt; there is no readback. Fails with
@@ -685,6 +725,10 @@ impl<B: Backend> Terminal<B> {
         self.backend.set_clipboard(contents)
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the hide command cannot be
+    /// written.
     /// Hides the cursor (memoized: a no-op when already hidden).
     pub fn hide_cursor(&mut self) -> Result<(), B::Error> {
         if !self.hidden_cursor {
@@ -694,6 +738,10 @@ impl<B: Backend> Terminal<B> {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    /// Returns the backend's error when the show command cannot be
+    /// written.
     /// Shows the cursor (memoized: a no-op when already visible).
     pub fn show_cursor(&mut self) -> Result<(), B::Error> {
         if self.hidden_cursor {

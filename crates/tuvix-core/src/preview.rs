@@ -202,6 +202,7 @@ fn hyperlink_close() -> &'static str {
 /// This is a *snapshot* encoder — simpler and more verbose than the diff
 /// encoder the crossterm backend uses for live output — because preview
 /// frames are a cold path: one per draw, read by humans and debug tools.
+#[must_use]
 pub fn serialize_ansi(buffer: &Buffer) -> String {
     let width = buffer.area.width;
     let height = buffer.area.height;
@@ -264,7 +265,8 @@ pub fn serialize_ansi(buffer: &Buffer) -> String {
             }
             if !cell.symbol.is_empty() {
                 out.push_str(cell.symbol.as_str());
-                cursor_col = col.saturating_add(cell.symbol_width() as u16);
+                cursor_col =
+                    col.saturating_add(u16::try_from(cell.symbol_width()).unwrap_or(u16::MAX));
             }
             col += 1;
         }
@@ -386,6 +388,7 @@ fn modifiers_json(style: Style) -> String {
 /// assert!(json.starts_with("{\"area\":{\"x\":0,\"y\":0,\"width\":2,\"height\":1}"));
 /// assert!(json.contains("\"symbol\":\"h\",\"fg\":\"red\""));
 /// ```
+#[must_use]
 pub fn serialize_json(buffer: &Buffer) -> String {
     let mut out = String::with_capacity(buffer.content.len() * 64 + 48);
     out.push_str("{\"area\":{\"x\":");
@@ -507,6 +510,7 @@ impl PreviewTap {
     }
 
     /// The bound address (TCP only; `None` for unix sockets).
+    #[must_use]
     pub fn local_addr(&self) -> Option<SocketAddr> {
         self.local_addr
     }
@@ -514,6 +518,7 @@ impl PreviewTap {
     /// A cloneable [`FrameSink`] that forwards frames into the tap's
     /// broadcast thread. Hand this to
     /// [`Terminal::set_preview`](crate::terminal::Terminal::set_preview).
+    #[must_use]
     pub fn sink(&self) -> PreviewSink {
         PreviewSink {
             commands: self.commands.clone(),
@@ -669,11 +674,13 @@ pub struct RecordingSink {
 
 impl RecordingSink {
     /// Creates a recorder with an empty log.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// The frames recorded so far, in order.
+    #[must_use]
     pub fn frames(&self) -> std::sync::Arc<std::sync::Mutex<Vec<String>>> {
         std::sync::Arc::clone(&self.frames)
     }
@@ -691,7 +698,7 @@ impl FrameSink for RecordingSink {
 /// Attach it with [`Terminal::set_preview`](crate::terminal::Terminal::set_preview)
 /// and every flushed frame — committed, no-op — is recorded as the exact
 /// byte snapshot the screen showed. The history is the raw material of the
-/// architecture's DevTools story (§5.8): scrub to any retained frame,
+/// architecture's `DevTools` story (§5.8): scrub to any retained frame,
 /// diff two frames, or assert golden frames in tests.
 ///
 /// The sink is a cheap `Clone` handle onto one ring (the `RecordingSink`
@@ -777,6 +784,7 @@ struct HistoryState {
 impl HistorySink {
     /// Creates a history that keeps the newest `capacity` frames, dropping
     /// the oldest when full. A capacity of 0 is clamped to 1.
+    #[must_use]
     pub fn bounded(capacity: usize) -> Self {
         Self {
             state: std::sync::Arc::new(std::sync::Mutex::new(HistoryState {
@@ -788,47 +796,56 @@ impl HistorySink {
     }
 
     /// Creates a history that keeps every frame.
+    #[must_use]
     pub fn unbounded() -> Self {
         Self::bounded(usize::MAX)
     }
 
     /// The retention limit (`usize::MAX` when unbounded).
+    #[must_use]
     pub fn capacity(&self) -> usize {
         self.lock().capacity
     }
 
     /// Frames currently retained.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.lock().frames.len()
     }
 
     /// Whether nothing is retained.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Frames dropped from the front of the ring so far.
+    #[must_use]
     pub fn dropped_frames(&self) -> u64 {
         self.lock().dropped
     }
 
     /// Frames ever captured (retained + dropped).
+    #[must_use]
     pub fn total_frames(&self) -> u64 {
         let state = self.lock();
         state.dropped + state.frames.len() as u64
     }
 
     /// The retained frame at local `index` (0 = oldest retained).
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<String> {
         self.lock().frames.get(index).cloned()
     }
 
     /// The most recent frame, if any.
+    #[must_use]
     pub fn latest(&self) -> Option<String> {
         self.lock().frames.back().cloned()
     }
 
     /// Every retained frame, oldest first, as owned strings.
+    #[must_use]
     pub fn frames(&self) -> Vec<String> {
         self.lock().frames.iter().cloned().collect()
     }

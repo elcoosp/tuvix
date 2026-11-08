@@ -84,6 +84,7 @@ pub struct KeyPattern {
 
 impl KeyPattern {
     /// A pattern for `code` with no modifier requirements.
+    #[must_use]
     pub fn new(code: KeyCode) -> Self {
         Self {
             code,
@@ -92,30 +93,35 @@ impl KeyPattern {
     }
 
     /// Requires the control modifier.
+    #[must_use]
     pub fn ctrl(mut self) -> Self {
         self.modifiers.insert(KeyModifiers::CONTROL);
         self
     }
 
     /// Requires the alt modifier.
+    #[must_use]
     pub fn alt(mut self) -> Self {
         self.modifiers.insert(KeyModifiers::ALT);
         self
     }
 
     /// Requires the shift modifier.
+    #[must_use]
     pub fn shift(mut self) -> Self {
         self.modifiers.insert(KeyModifiers::SHIFT);
         self
     }
 
     /// Requires the super modifier.
+    #[must_use]
     pub fn super_key(mut self) -> Self {
         self.modifiers.insert(KeyModifiers::SUPER);
         self
     }
 
     /// Requires every modifier in `modifiers` (union with the current set).
+    #[must_use]
     pub fn with(mut self, modifiers: KeyModifiers) -> Self {
         self.modifiers.insert(modifiers);
         self
@@ -123,6 +129,7 @@ impl KeyPattern {
 
     /// Whether `key` satisfies this pattern: same code, a press, and the
     /// pattern's modifiers a subset of the event's.
+    #[must_use]
     pub fn matches(&self, key: &KeyEvent) -> bool {
         key.kind == KeyEventKind::Press
             && key.code == self.code
@@ -173,6 +180,7 @@ impl<C> Default for Keymap<C> {
 
 impl<C: Clone> Keymap<C> {
     /// Creates an empty keymap.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

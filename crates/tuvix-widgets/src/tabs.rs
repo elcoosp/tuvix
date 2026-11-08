@@ -76,30 +76,35 @@ impl Tabs {
     }
 
     /// The selected tab index (out-of-range selects nothing).
+    #[must_use]
     pub fn select(mut self, index: usize) -> Self {
         self.select = index;
         self
     }
 
     /// The base style of every unselected title.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// The style of the selected title (patched over the base style).
+    #[must_use]
     pub fn highlight_style(mut self, style: Style) -> Self {
         self.highlight_style = style;
         self
     }
 
     /// The separator drawn between adjacent titles (default `│`).
+    #[must_use]
     pub fn divider<T: Into<Span>>(mut self, divider: T) -> Self {
         self.divider = divider.into();
         self
     }
 
     /// The padding strings flanking every title (default one space).
+    #[must_use]
     pub fn padding<T: Into<String>>(mut self, left: T, right: T) -> Self {
         self.padding_left = left.into();
         self.padding_right = right.into();
@@ -107,6 +112,7 @@ impl Tabs {
     }
 
     /// Wraps the tabs in a block; the row fills the block's inner area.
+    #[must_use]
     pub fn block(mut self, block: Block) -> Self {
         self.block = Some(block);
         self
@@ -114,6 +120,7 @@ impl Tabs {
 
     /// Maps the theme: the `text` slot styles unselected titles, the
     /// `highlight` slot the selected one.
+    #[must_use]
     pub fn theme(mut self, theme: &Theme) -> Self {
         self.style = theme.text;
         self.highlight_style = theme.highlight;

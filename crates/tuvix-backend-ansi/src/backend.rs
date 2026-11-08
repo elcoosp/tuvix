@@ -260,7 +260,10 @@ impl<W: Write> Backend for AnsiBackend<W> {
     ) -> Result<(), Self::Error> {
         for run in content {
             for (index, cell) in run.cells.iter().enumerate() {
-                let position = Position::new(run.start + index as u16, run.row);
+                let position = Position::new(
+                    run.start + u16::try_from(index).unwrap_or(u16::MAX),
+                    run.row,
+                );
                 // Covered cells are invisible; just keep the virtual cursor
                 // in sync so no extra move is needed.
                 if cell.skip {
@@ -296,7 +299,7 @@ impl<W: Write> Backend for AnsiBackend<W> {
                 self.write(cell.symbol.as_str())?;
                 // The terminal advanced the cursor by the glyph width.
                 self.current_position = Some(Position::new(
-                    position.x + cell.symbol_width() as u16,
+                    position.x + u16::try_from(cell.symbol_width()).unwrap_or(u16::MAX),
                     position.y,
                 ));
             }

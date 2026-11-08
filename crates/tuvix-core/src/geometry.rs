@@ -16,6 +16,7 @@ pub struct Position {
 
 impl Position {
     /// Creates a position from `x` (column) and `y` (row).
+    #[must_use]
     pub const fn new(x: u16, y: u16) -> Self {
         Self { x, y }
     }
@@ -41,11 +42,13 @@ pub struct Size {
 
 impl Size {
     /// Creates a size from `width` and `height`.
+    #[must_use]
     pub const fn new(width: u16, height: u16) -> Self {
         Self { width, height }
     }
 
     /// Returns `true` when either dimension is zero.
+    #[must_use]
     pub const fn is_empty(self) -> bool {
         self.width == 0 || self.height == 0
     }
@@ -83,6 +86,7 @@ impl Rect {
     };
 
     /// Creates a rect from an inclusive top-left corner and an exclusive size.
+    #[must_use]
     pub const fn new(x: u16, y: u16, width: u16, height: u16) -> Self {
         Self {
             x,
@@ -93,6 +97,7 @@ impl Rect {
     }
 
     /// Creates a rect anchored at the origin with the given size.
+    #[must_use]
     pub const fn from_size(size: Size) -> Self {
         Self {
             x: 0,
@@ -103,6 +108,7 @@ impl Rect {
     }
 
     /// Returns the size of the rect.
+    #[must_use]
     pub const fn size(self) -> Size {
         Size {
             width: self.width,
@@ -112,21 +118,25 @@ impl Rect {
 
     /// Returns the number of cells covered by the rect, computed in `u32` so
     /// that `width = height = u16::MAX` does not overflow.
+    #[must_use]
     pub fn area(self) -> u32 {
         u32::from(self.width) * u32::from(self.height)
     }
 
     /// Returns `true` when either dimension is zero.
+    #[must_use]
     pub const fn is_empty(self) -> bool {
         self.width == 0 || self.height == 0
     }
 
     /// Returns the exclusive right edge, saturating at `u16::MAX`.
+    #[must_use]
     pub const fn right(self) -> u16 {
         self.x.saturating_add(self.width)
     }
 
     /// Returns the exclusive bottom edge, saturating at `u16::MAX`.
+    #[must_use]
     pub const fn bottom(self) -> u16 {
         self.y.saturating_add(self.height)
     }
@@ -143,6 +153,7 @@ impl Rect {
 
     /// Returns the overlap of the two rects, or `None` when they do not share
     /// at least one cell (touching edges do not count as overlap).
+    #[must_use]
     pub fn intersection(self, other: Self) -> Option<Self> {
         let left = u32::from(self.x.max(other.x));
         let top = u32::from(self.y.max(other.y));
@@ -150,10 +161,10 @@ impl Rect {
         let bottom = self.bottom32().min(other.bottom32());
         if right > left && bottom > top {
             Some(Self {
-                x: left as u16,
-                y: top as u16,
-                width: (right - left) as u16,
-                height: (bottom - top) as u16,
+                x: u16::try_from(left).unwrap_or(u16::MAX),
+                y: u16::try_from(top).unwrap_or(u16::MAX),
+                width: u16::try_from(right - left).unwrap_or(u16::MAX),
+                height: u16::try_from(bottom - top).unwrap_or(u16::MAX),
             })
         } else {
             None
@@ -162,16 +173,17 @@ impl Rect {
 
     /// Returns the smallest rect covering both rects. Dimensions saturate at
     /// `u16::MAX`.
+    #[must_use]
     pub fn union(self, other: Self) -> Self {
         let left = u32::from(self.x.min(other.x));
         let top = u32::from(self.y.min(other.y));
         let right = self.right32().max(other.right32());
         let bottom = self.bottom32().max(other.bottom32());
         Self {
-            x: left as u16,
-            y: top as u16,
-            width: (right - left).min(u32::from(u16::MAX) - left) as u16,
-            height: (bottom - top).min(u32::from(u16::MAX) - top) as u16,
+            x: u16::try_from(left).unwrap_or(u16::MAX),
+            y: u16::try_from(top).unwrap_or(u16::MAX),
+            width: u16::try_from(right - left).unwrap_or(u16::MAX),
+            height: u16::try_from(bottom - top).unwrap_or(u16::MAX),
         }
     }
 
@@ -190,6 +202,7 @@ impl Rect {
     /// // Oversized requests clamp to the host.
     /// assert_eq!(host.centered(100, 30), host);
     /// ```
+    #[must_use]
     pub fn centered(self, width: u16, height: u16) -> Self {
         let width = width.min(self.width);
         let height = height.min(self.height);

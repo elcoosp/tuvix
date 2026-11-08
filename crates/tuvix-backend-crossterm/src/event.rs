@@ -18,6 +18,7 @@ use tuvix_core::event::{
 use tuvix_core::style::Color;
 
 /// Converts a crossterm event into a tuvix event.
+#[must_use]
 pub fn to_tuvix_event(event: CrosstermEvent) -> Event {
     match event {
         CrosstermEvent::FocusGained => Event::FocusGained,
@@ -186,6 +187,7 @@ fn to_tuvix_button(button: CrosstermMouseButton) -> MouseButton {
 ///
 /// The mapping follows the ANSI palette: `Red` maps to crossterm's
 /// `DarkRed` (ANSI 1) and `LightRed` to crossterm's `Red` (ANSI 9).
+#[must_use]
 pub fn to_tuvix_color(color: CrosstermColor) -> Color {
     match color {
         CrosstermColor::Reset => Color::Reset,
@@ -214,6 +216,7 @@ pub fn to_tuvix_color(color: CrosstermColor) -> Color {
 ///
 /// The mapping follows the ANSI palette: `Red` maps to crossterm's
 /// `DarkRed` (ANSI 1) and `LightRed` to crossterm's `Red` (ANSI 9).
+#[must_use]
 pub fn to_crossterm_color(color: Color) -> CrosstermColor {
     match color {
         Color::Reset => CrosstermColor::Reset,

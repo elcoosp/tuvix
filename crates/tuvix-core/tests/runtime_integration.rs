@@ -221,7 +221,7 @@ fn event_stream_awaits_across_threads_with_no_executor() {
 #[test]
 fn stream_ends_after_the_last_sender_is_dropped() {
     let (sender, mut stream) = event_channel();
-    sender.send(Event::Resize(80, 24));
+    assert!(sender.send(Event::Resize(80, 24)));
     drop(sender);
 
     // Drain: the queued event first, then the end of the stream.

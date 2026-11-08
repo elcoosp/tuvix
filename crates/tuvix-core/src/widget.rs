@@ -124,7 +124,12 @@ mod tests {
     impl Widget for Stamp {
         fn render(self, area: Rect, buf: &mut Buffer) {
             for index in 0..self.1.min(usize::from(area.width)) {
-                buf.set_string(area.x + index as u16, area.y, self.0, Style::new());
+                buf.set_string(
+                    area.x + u16::try_from(index).unwrap_or(u16::MAX),
+                    area.y,
+                    self.0,
+                    Style::new(),
+                );
             }
         }
     }
