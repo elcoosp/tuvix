@@ -14,6 +14,21 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M17 scorecard (2026-11)
+
+The M17 additions (`tuvix-core/benches/layer.rs`, the B20 gate in
+`tuvix-widgets/tests/m17_floating_select.rs`,
+`tuvix-widgets/benches/dropdown.rs`, criterion 0.8.2, release profile):
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `layer/l4_dropdown_rows_sizing` | one sizing decision: the rows a 100-option dropdown requests at the 200x60 budget viewport | **~5.1 ns** | pass |
+| `gates/m17_floating_select_scroll_composite_200x60` | the B20 composite: the bordered 200x60 dashboard plus an open 100-option dropdown whose visible window scrolls with the highlight | **~125 us** | pass |
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B20 scrolling floating-select composite: the dashboard base plus the sized, placed, erased dropdown painting the visible window of 100 options, 300-frame run @ 200x60 | p99 <= 1 ms | **median 115.4 us, p99 163.6 us, max 200.7 us** | pass — **~6x headroom**; the honest long list costs the same half-of-B2 envelope B18 and B19 draw for the form panel and the static dropdown, a rounding error next to the 2 ms B2 frame it covers |
+
 ## M16 scorecard (2026-11)
 
 The M16 additions (`tuvix-core/benches/layer.rs`, the B19 gate in
