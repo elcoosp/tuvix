@@ -451,6 +451,7 @@ pub trait Backend {
 | **M13 — Motion** | the animation layer: clamped `Progress` on the clock, the 16-curve `Easing` catalog pinned to an independent reference (endpoints exact, `OutBack`/`OutElastic` overshoot preserved), frame-rate-independent `Tween` with delay/repeat/alternate semantics and the one boundary rule, `Interpolate` for floats, integers and `Color` (RGB blends per channel, discrete colors snap), the keyed `Animator` with sorted finish reports, pinned rest values and the O(1) `is_idle` static-CPU decision; the `animation` example, the motion benches and the B16 1,000-tween gate | **done** |
 | **M14 — Mouse depth** | the pointer layer: the `HitMap` click surface (paint-order z-order, local coordinates, `push_clipped` with the buffer's clip discipline), the `GestureRecognizer` (clicks counted release-to-release on an injected clock, drags anchored at their origin with same-cell wobble ignored, scroll/move pass-through), the declarative `MouseMap` (`MousePattern`/`MouseClass`/`ButtonPattern`, later bindings shadow earlier ones, drags resolve against their origin, stateless `Option<C>` resolution), the `anchor` helper; the `mouse` example, the mouse benches and the B17 mouse-decision gate | **done** |
 | **M15 — Forms & selection** | the selection family: `Checkbox` (state-bearing marker glyph, checked-style patch), `RadioGroup` (one highlight per group, out-of-range renders none), `Switch` (knob-in-a-track), `Select` + `SelectState` (open/highlight/commit as a data structure — navigation takes the option count, `choose` commits and closes, dismissal forgets), theme mapping through the existing slots, zero new dependencies; the `forms` example, the form benches and the B18 form-panel paint gate | **done** |
+| **M16 — Floating surfaces** | the layer module: `Placement` (`Below`/`Above`/`Centered`/`At`) and `place` — the flip-then-clamp geometry a popup needs (preferred side, mirror side when the edge is near, nearest host edge when neither fits; size never shrinks except `Centered`, which keeps the exact M6 `Rect::centered` rule; the rect never starts outside its host; total at every `u16` corner through `u32` math), `Overlay` — the erase-then-paint compositor (the buffer's pair-repairing clear, stateful passthrough, z-order is paint order); the `layers` example, the layer benches and the B19 floating-dropdown composite gate | **done** |
 
 ## 12. Decision log
 
@@ -1210,3 +1211,45 @@ pub trait Backend {
   `gates/m15_form_panel_paint_200x60` criterion bench (~91 us): the
   four controls together cost a rounding error against the frame they
   ride in.
+
+---
+
+## 23. M16 decisions (2026-11)
+
+- **Placement is a function, not a widget policy.** M15 closed with the
+  honest limitation: the dropdown paints inside its area, and apps that
+  want a floating surface re-roll `Rect::centered` + `Clear` by hand —
+  the only primitive that cannot express "open below my trigger, flip
+  above when the edge is near". `place` is that decision as a pure
+  geometry function next to `hit` and `mousemap`: deterministic, O(1),
+  allocation-free, and total at every `u16` corner (the arithmetic runs
+  in `u32` and saturates, so no anchor, size or host combination can
+  panic). The flip-then-clamp ladder mirrors the layout solver's shape:
+  one preferred side, one mirror side, one remainder rule (the nearest
+  host edge), documented once and pinned by 18 integration tests.
+- **Size never shrinks — except Centered, which keeps the M6 rule.** A
+  dropdown taller than the screen must still open from its trigger and
+  let the buffer's clip discipline truncate it, not collapse into the
+  host: the caller sees honest geometry and decides. A modal bigger
+  than its host is meaningless, so `Placement::Centered` delegates to
+  the exact `Rect::centered` rule (an oversized modal *is* the host),
+  keeping M6 parity byte-for-byte and the popup kit's one surprise
+  where it already lived.
+- **Overlay is the popup's second half as a type.** The erase step is
+  where apps quietly break wide glyphs: resetting cells individually
+  orphans covered halves. `Overlay` renders the discipline once — the
+  buffer's pair-repairing clear, then the wrapped widget — and adds
+  nothing else: no position (the caller resolved it with `place`), no
+  state (a wrapped `RenderWidget` keeps its own `State`), no layout
+  policy wearing a widget costume (the M15 line, held one more layer
+  down). Z-order stays paint order, which is the same painter's
+  algorithm the `HitMap` already speaks: an app registers overlays
+  after the base and the mouse lands where the eye looks.
+- **B19 pins the composite, not the decision.** One placement decision
+  costs ~5 ns on all three paths (L1 fit, L2 flip, L3 clamp — the
+  layer benches), so the budget that matters is the erase-then-paint
+  over a real base: a 200x60 dashboard with an open 16-option dropdown
+  composites in a median ~91 us, p99 ~122 us over 300 frames — the
+  same half-of-B2 envelope B14 draws for a scroll storm and B18 for a
+  form panel. The floating surface is a rounding error against the
+  frame it covers.
