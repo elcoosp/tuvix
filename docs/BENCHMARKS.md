@@ -14,6 +14,22 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M16 scorecard (2026-11)
+
+The M16 additions (`tuvix-core/benches/layer.rs`, the B19 gate in
+`tuvix-widgets/tests/m16_overlay.rs`, criterion 0.8.2, release profile):
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `layer/l1_place_below_fits` | one placement decision, the fast path: the dropdown fits below its trigger | **~5.2 ns** | pass |
+| `layer/l2_place_below_flips` | one placement decision, the flip path: the edge is near, the mirror side wins | **~5.1 ns** | pass |
+| `layer/l3_place_at_tooltip` | one placement decision, the clamp path: a tooltip corner pulled back to the host edge | **~5.1 ns** | pass |
+| `gates/m16_floating_dropdown_composite_200x60` | the B19 composite: a bordered 200x60 dashboard (24-row list, select trigger) plus an open 16-option dropdown placed and composited over it | **~98 us** | pass |
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B19 floating-dropdown composite: the dashboard base plus the placed dropdown erase-then-paint over it, 300-frame run @ 200x60 | p99 <= 1 ms | **median 91.5 us, p99 122 us, max 338 us** | pass — **~8x headroom**; the floating surface costs the same envelope as the B18 form panel, a rounding error next to the 2 ms B2 frame it covers |
+
 ## M15 scorecard (2026-11)
 
 The M15 additions (`tuvix-widgets/benches/widgets.rs` M15 entries, the
