@@ -12,7 +12,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tuvix_core::geometry::{Position, Rect, Size};
-use tuvix_core::layer::{Placement, dropdown_rows, place};
+use tuvix_core::layer::{Placement, SurfaceStack, dropdown_rows, place};
 
 fn bench_layer(c: &mut Criterion) {
     let mut group = c.benchmark_group("layer");
@@ -62,6 +62,37 @@ fn bench_layer(c: &mut Criterion) {
     // cap that pairs with `place`'s flip ladder.
     group.bench_function("l4_dropdown_rows_sizing", |b| {
         b.iter(|| black_box(dropdown_rows(black_box(host), black_box(trigger), 100)));
+    });
+
+    // L5 — the M18 routing decision: raise an open surface, open a new
+    // one — the per-event cost every floating surface pays.
+    let mut opened = SurfaceStack::new();
+    for key in 0..8_u8 {
+        opened.push(key);
+    }
+    group.bench_function("l5_surface_stack_push_raise", |b| {
+        b.iter(|| {
+            black_box(opened.push(black_box(3_u8)));
+            black_box(opened.close_top());
+            black_box(opened.push(black_box(9_u8)));
+        });
+    });
+
+    // L6 — the frame walk: close a middle surface by value (the toast
+    // cycle), reopen it and walk the order — the sequence the paint and
+    // the hit-map registration consume every frame.
+    let mut stacked = SurfaceStack::new();
+    for key in 0..8_u8 {
+        stacked.push(key);
+    }
+    group.bench_function("l6_surface_stack_close_and_walk", |b| {
+        b.iter(|| {
+            black_box(stacked.close(black_box(&4_u8)));
+            black_box(stacked.push(black_box(4_u8)));
+            for key in stacked.order() {
+                black_box(*key);
+            }
+        });
     });
 
     group.finish();
