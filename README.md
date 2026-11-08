@@ -83,6 +83,7 @@ Paste it into a new crate (or run the full version with `cargo run -p tuvix --ex
 - **Async events without an async runtime.** The event stream is std-only and speaks the standard waker protocol, so tokio, smol, async-std or a 30-line hand-rolled `block_on` (`crates/tuvix/examples/async_events.rs`) all await it.
 - **A C embedding boundary.** Hosts drive the screen with one flat, versioned `TVX` mutation packet per frame — strict byte-offset errors, all-or-nothing apply, snapshot read-back — through the `tuvix-ffi` C ABI (`tuvix.h` ships with the crate); the B15 gate measures ~9.3M mutations/sec across the raw ABI.
 - **Interaction depth.** A declarative `Keymap` with multi-key chords (`g g`), a `FocusRing` router, a mouse stack (painter's-algorithm `HitMap`, `GestureRecognizer`, declarative `MouseMap`), and a motion layer of 16 easing curves with frame-rate-independent `Tween`s and an `Animator` whose `is_idle()` stops the loop when nothing moves.
+- **Floating surfaces with honest geometry.** `place` resolves where a surface goes — a dropdown opens below its trigger and flips above when the edge is near, a modal centers under the M6 rule, a tooltip clamps at the pointer, and every rect stays inside its host when the size allows — while `Overlay` composites it: erase (wide-glyph pairs repaired), then paint. Z-order is paint order, on the screen and in the hit map alike.
 
 ## How it works
 
@@ -114,6 +115,7 @@ cargo run -p tuvix --example inputs          # tabs, a text field and a popup
 cargo run -p tuvix --example data_view       # bar chart, tree and the markup parser
 cargo run -p tuvix --example interaction     # scrollable viewport, focus ring, keymap chords
 cargo run -p tuvix --example forms           # checkboxes, radio group, switch and the select dropdown
+cargo run -p tuvix --example layers          # a floating dropdown and a modal over a dashboard
 cargo run -p tuvix --example notes           # TextArea editing with a golden replay on exit
 cargo run -p tuvix --example devtools        # record, scrub, inspect, export sessions
 cargo run -p tuvix --example preview         # watch the app from another terminal
@@ -132,11 +134,11 @@ The design document — principles, pipeline, layout solver, event model, testin
 ## Status
 
 > [!NOTE]
-> tuvix is pre-1.0 (v0.15.0), developed milestone-by-milestone with the architecture doc tracking M0 through M15 as implemented. Per [`docs/PLATFORMS.md`](docs/PLATFORMS.md): the crossterm backend covers Linux, macOS and Windows (conhost and Windows Terminal); the termion backend is unix-only; the ANSI backend writes to any `Write` target. Unix-socket previews are unix-only (TCP previews work on all three), and OSC 8 hyperlinks and the OSC 52 clipboard degrade gracefully where a terminal does not support them. CI exercises the full suite and doctests natively on all three operating systems, plus a Rust 1.88 MSRV job.
+> tuvix is pre-1.0 (v0.15.0), developed milestone-by-milestone with the architecture doc tracking M0 through M16 as implemented. Per [`docs/PLATFORMS.md`](docs/PLATFORMS.md): the crossterm backend covers Linux, macOS and Windows (conhost and Windows Terminal); the termion backend is unix-only; the ANSI backend writes to any `Write` target. Unix-socket previews are unix-only (TCP previews work on all three), and OSC 8 hyperlinks and the OSC 52 clipboard degrade gracefully where a terminal does not support them. CI exercises the full suite and doctests natively on all three operating systems, plus a Rust 1.88 MSRV job.
 
 ## Learn more
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the full design: principles, rendering pipeline, backend contract, decision log
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) — criterion baselines and the timing gates enforced on a weekly CI schedule
 - [`docs/PLATFORMS.md`](docs/PLATFORMS.md) — the platform support matrix
-- [`crates/tuvix/examples/`](crates/tuvix/examples/) — fifteen runnable apps, from the hello loop to the embedding boundary
+- [`crates/tuvix/examples/`](crates/tuvix/examples/) — sixteen runnable apps, from the hello loop to the embedding boundary
