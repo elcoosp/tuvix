@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- M16-A `place` + `Placement` — floating-surface placement: a dropdown opens below its trigger and flips above when the edge is near, a modal centers under the exact M6 rule, a tooltip clamps at the pointer; total at every `u16` corner
+- M16-B `Overlay` — the erase-then-paint compositor: the buffer's pair-repairing clear, stateful passthrough, z-order is paint order
+- M16 prelude wiring, the facade doctest and the `layers` example
+### Documentation
+- M16 architecture decisions, benchmark scorecard and readme
+### Fixed
+- Repair `Buffer`'s `Display` row wrapping for buffers larger than 65,535 cells (the flat index truncated to `u16` and mis-rowed giant buffers)
+- Make terminal-grid narrowing saturating instead of wrapping: every `usize`/`u32`/`u64` to `u16`/`u8` conversion now goes through `try_from` (escape-sequence cursor addressing, layout segments, table row heights, sparkline rows, snapshot columns)
+- Repair the CI push branch filter (`branches: ain]` never matched `main`, so push-triggered CI silently never ran)
+- Correct the release doc's publish list (seven published crates in dependency order, `tuvix-ffi` included)
+### Engineering
+- Enforce the pedantic gate workspace-wide: `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` exits 0 and `grep -rnE '#!?\[allow\('` finds nothing — 340+ pedantic violations fixed in code (`#[must_use]` on every builder, `# Errors`/`# Panics` sections on every fallible public fn, saturating `try_from` narrowing) and 17 enforced `#[expect]`s with reasons on the irreducible float-to-grid casts (the M13 saturating lerp contract, clamped color blends, gauge fills)
+### Performance
+- M16 the layer benches — the placement decision under measurement (B19: a floating 16-option dropdown composites over a 200x60 dashboard in a median ~91 us, p99 ~122 us, ~8x under the 1 ms gate)
 - M15-A Checkbox — a single-row boolean control with a state-bearing marker glyph
 - M15-B RadioGroup — an exclusive-choice list with one highlight
 - M15-C Switch — a knob-in-a-track on/off control
