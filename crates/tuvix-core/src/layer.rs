@@ -29,6 +29,11 @@
 //!   saturates at the `u16` edges: any anchor, any size, any host
 //!   produces a deterministic [`Rect`], never a panic.
 //!
+//! Sizing is the other half of the decision: [`place`] needs a
+//! [`Size`], and the size a dropdown should ask for — the option count
+//! capped by the roomiest gap — is [`dropdown_rows`]' answer, so the
+//! flip ladder always receives a size one of its paths can open.
+//!
 //! # Examples
 //!
 //! ```
@@ -163,6 +168,57 @@ pub fn place(host: Rect, anchor: Rect, size: Size, placement: Placement) -> Rect
     )
 }
 
+/// The rows a dropdown-style floating surface should request from
+/// [`place`]: the content's row count, capped by the roomiest of the
+/// two gaps the flip ladder can open into (below the anchor, above
+/// it).
+///
+/// [`place`] answers where a surface of a given size goes;
+/// `dropdown_rows` answers the size a dropdown should ask for, so an
+/// app never re-rolls "how many of my options fit?" by hand. The pair
+/// composes: size with `dropdown_rows`, then [`Placement::Below`] —
+/// when the surface does not fit below the anchor, the same size fits
+/// the roomier side above, which is exactly the side the cap measured.
+///
+/// Zero content requests zero rows (a dropdown with nothing to show
+/// opens no surface); non-empty content floors at one row — the caller
+/// decides not to open, the sizing never hides the want.
+///
+/// # Examples
+///
+/// ```
+/// use tuvix_core::geometry::{Rect, Size};
+/// use tuvix_core::layer::{Placement, dropdown_rows, place};
+///
+/// let host = Rect::new(0, 0, 40, 20);
+/// let trigger = Rect::new(5, 10, 10, 1);
+///
+/// // Eighteen options in a 20-row host: nine rows free below the
+/// // trigger, ten above — the surface borrows the roomier side.
+/// assert_eq!(dropdown_rows(host, trigger, 18), 10);
+///
+/// // Sized, then placed: the ten rows do not fit below, so the
+/// // surface opens above and ends at the trigger.
+/// let surface = place(
+///     host,
+///     trigger,
+///     Size::new(12, dropdown_rows(host, trigger, 18)),
+///     Placement::Below,
+/// );
+/// assert_eq!(surface.bottom(), trigger.y);
+/// ```
+#[must_use]
+pub fn dropdown_rows(host: Rect, anchor: Rect, content_rows: usize) -> u16 {
+    let wanted = u32::try_from(content_rows).unwrap_or(u32::MAX);
+    if wanted == 0 {
+        return 0;
+    }
+    let room_below = u32::from(host.bottom()).saturating_sub(u32::from(anchor.bottom()));
+    let room_above = u32::from(anchor.y).saturating_sub(u32::from(host.y));
+    let rows = wanted.min(room_below.max(room_above)).max(1);
+    u16::try_from(rows).unwrap_or(u16::MAX)
+}
+
 /// The shared horizontal rule of `Below` and `Above`: left-align to the
 /// anchor; when that runs past the host, right-align to the anchor's
 /// right edge; when that does not fit either, flush to the host's
@@ -212,5 +268,33 @@ mod tests {
         let anchor = Rect::ZERO;
         let placed = place(host, anchor, Size::new(4, 2), Placement::Below);
         assert_eq!(placed, Rect::new(0, 0, 4, 2));
+    }
+
+    // M17 — the sizing half of the decision.
+
+    #[test]
+    fn dropdown_rows_caps_at_the_roomiest_gap() {
+        let host = Rect::new(0, 0, 40, 20);
+        let trigger = Rect::new(5, 10, 10, 1);
+        // Nine rows below, ten above: eighteen options borrow the ten.
+        assert_eq!(dropdown_rows(host, trigger, 18), 10);
+        assert_eq!(dropdown_rows(host, trigger, 6), 6, "content under the cap");
+    }
+
+    #[test]
+    fn dropdown_rows_floors_at_one_row_for_non_empty_content() {
+        let host = Rect::new(0, 0, 40, 1);
+        let trigger = Rect::new(0, 0, 40, 1);
+        assert_eq!(dropdown_rows(host, trigger, 9), 1);
+        assert_eq!(dropdown_rows(host, trigger, 0), 0, "no content, no rows");
+    }
+
+    #[test]
+    fn dropdown_rows_is_total_at_the_corners() {
+        let host = Rect::new(0, 0, u16::MAX, u16::MAX);
+        let anchor = Rect::new(0, 0, 1, 1);
+        assert_eq!(dropdown_rows(host, anchor, usize::MAX), 65_534);
+        let sunken = Rect::new(0, u16::MAX, 5, 1);
+        assert_eq!(dropdown_rows(host, sunken, 9), 9, "saturating room above");
     }
 }
