@@ -7,8 +7,9 @@ for changelog generation.
 ## Steps
 
 1. Ensure CI is green on `main`.
-2. Bump versions (all four crates share the workspace version in
-   `Cargo.toml`), commit:
+2. Bump versions (the published crates share the workspace version in
+   `Cargo.toml`; `tuvix-memgate` is test-only and stays unpublishable),
+   commit:
 
    ```
    git commit -m "chore(release): prepare for v0.2.0"
@@ -25,8 +26,10 @@ for changelog generation.
    - generates the release notes for the latest tag with
      `git-cliff --latest --strip header`,
    - creates the GitHub release with those notes,
-   - publishes `tuvix-core` → `tuvix-widgets` → `tuvix-backend-crossterm` →
-     `tuvix` to crates.io in dependency order (requires the
+   - publishes seven crates to crates.io in dependency order —
+     `tuvix-core` → `tuvix-ffi` → `tuvix-widgets` →
+     `tuvix-backend-crossterm` → `tuvix-backend-ansi` →
+     `tuvix-backend-termion` → `tuvix` (requires the
      `CARGO_REGISTRY_TOKEN` secret; skipped cleanly when absent).
 
 ## Local changelog preview
