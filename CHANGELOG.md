@@ -7,14 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- M18 `SurfaceStack` — the floating-surface routing as a type: push opens or raises, `close` removes stably, `close_top` is the Esc precedence, `order()` is the paint and hit-map registration order; the facade/prelude export and the `layers` example rewired to the managed stack
 - M17-A `dropdown_rows` — the floating-dropdown sizing decision: content rows capped by the roomiest of the two gaps, so `place`'s flip ladder always opens
 - M17-B `SelectState::visible_window` — the pure scroll window that keeps the highlight visible at any surface height (navigation never points at a clipped option)
 - M17-C `Select::render_options` — the surface half of the dropdown: the visible option window painted into a placed, erased rect
 - M17 the `layers` example rewired to the real floating dropdown, and the `dropdown_rows` facade/prelude export
 ### Documentation
+- M18 the layer-module stack decisions, benchmark scorecard and readme
 - M16 the layer module decisions, benchmark scorecard and readme
 - M17 architecture decisions, benchmark scorecard and readme (the status header now tracks M17)
 ### Fixed
+- Repair the counting allocator's shrinking `realloc` accounting — a shrink credited the released bytes back as live ones (`unsigned_abs` fetch_add), inflating the B13 live-bytes measurement on any shrinking realloc
+- Point the workspace `repository` field and the git-cliff compare links at the real repository (`elcoosp/tuvix`)
 - Repair `Buffer`'s `Display` row wrapping for buffers larger than 65,535 cells (the flat index truncated to `u16` and mis-rowed giant buffers)
 - Make terminal-grid narrowing saturating instead of wrapping: every `usize`/`u32`/`u64` to `u16`/`u8` conversion now goes through `try_from` (escape-sequence cursor addressing, layout segments, table row heights, sparkline rows, snapshot columns)
 - Repair the CI push branch filter (`branches: ain]` never matched `main`, so push-triggered CI silently never ran)
@@ -22,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Engineering
 - Enforce the pedantic gate workspace-wide: `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` exits 0 and `grep -rnE '#!?\[allow\('` finds nothing — 340+ pedantic violations fixed in code (`#[must_use]` on every builder, `# Errors`/`# Panics` sections on every fallible public fn, saturating `try_from` narrowing) and 17 enforced `#[expect]`s with reasons on the irreducible float-to-grid casts (the M13 saturating lerp contract, clamped color blends, gauge fills)
 ### Performance
+- M18 the stack benches — the routing under measurement (B21: the dropdown + tooltip + modal stacked composite repaints in a median ~101 us at 200x60, ~7x under the gate; the routing decision itself ~3 ns per op)
 - M16 the layer benches — the placement decision under measurement (B19: a floating 16-option dropdown composites over a 200x60 dashboard in a median ~91 us, p99 ~122 us, ~8x under the 1 ms gate)
 - M15-A Checkbox — a single-row boolean control with a state-bearing marker glyph
 - M15-B RadioGroup — an exclusive-choice list with one highlight
