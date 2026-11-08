@@ -11,7 +11,20 @@
 //!
 //! Navigation takes the option count (`select_next(count)`), the same
 //! honesty as `ListState::select_last(count)` and the M7 tree ops: the
-//! state never hides a copy of the options.
+//! state never hides a copy of the options. And since M17 the option
+//! list scrolls: [`SelectState::visible_window`] derives the visible
+//! range of options for any window height, so the highlight can never
+//! point at an option that renders nowhere.
+//!
+//! The dropdown paints in two halves, and M17 names the second one:
+//! the trigger is the closed render, and [`Select::render_options`]
+//! paints the visible option window into a rect the app resolved with
+//! `place` ([`Placement::Below`](tuvix_core::layer::Placement)) and
+//! erased with [`Overlay`] — the floating dropdown as a composite of
+//! the two primitives, with the sizing from
+//! [`dropdown_rows`](tuvix_core::layer::dropdown_rows).
+
+use std::ops::Range;
 
 use tuvix_core::buffer::Buffer;
 use tuvix_core::geometry::Rect;
@@ -121,6 +134,45 @@ impl SelectState {
     /// navigation ops.
     pub fn set_highlight(&mut self, index: usize) {
         self.highlight = index;
+    }
+
+    /// The visible option window: the range of option indexes a
+    /// renderer paints in `visible` rows, scrolled minimally so the
+    /// highlight stays a member — the `ListState` offset discipline as
+    /// a pure query, because the renderer never writes the state.
+    ///
+    /// The window is a pure function of the highlight: navigating away
+    /// and back answers with the same rows, `open()`'s highlight sync
+    /// brings the window back to the committed selection, and a
+    /// verbatim out-of-range highlight (which paints no row) still
+    /// derives a window inside the real options. A zero `visible` or
+    /// zero options answer an empty window.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tuvix_widgets::SelectState;
+    ///
+    /// let mut state = SelectState::new();
+    /// assert_eq!(state.visible_window(6, 3), 0..3, "the window hugs the top");
+    /// state.set_highlight(4);
+    /// assert_eq!(state.visible_window(6, 3), 2..5, "scrolled minimally");
+    /// state.set_highlight(99);
+    /// assert_eq!(state.visible_window(6, 3), 3..6, "still inside the options");
+    /// ```
+    #[must_use]
+    pub fn visible_window(&self, count: usize, visible: u16) -> Range<usize> {
+        let visible = usize::from(visible).min(count);
+        if visible == 0 {
+            return 0..0;
+        }
+        let start = if self.highlight >= visible {
+            self.highlight + 1 - visible
+        } else {
+            0
+        };
+        let start = start.min(count - visible);
+        start..start + visible
     }
 
     /// Commits the highlighted row as the selection and closes the list.
@@ -253,10 +305,13 @@ impl Select {
     /// Paints the dropdown into `buffer`, clipped to `area`, reading
     /// `state` for the open flag, the highlight and the committed choice.
     ///
-    /// Row one is the trigger (`label: value indicator`); while open, one
-    /// option renders per row below, the highlighted one in
-    /// [`Select::highlight_style`]. Everything clips at the inner area —
-    /// an open list in a one-row area shows only the trigger.
+    /// Row one is the trigger (`label: value indicator`); while open,
+    /// the visible option window renders one option per row below —
+    /// the window ([`SelectState::visible_window`]) scrolls minimally
+    /// with the highlight, so navigation never points at an option the
+    /// area clips away. The highlighted row takes
+    /// [`Select::highlight_style`]; an open list in a one-row area
+    /// shows only the trigger.
     pub fn render(&self, area: Rect, buffer: &mut Buffer, state: &SelectState) {
         if area.is_empty() {
             return;
@@ -337,11 +392,68 @@ impl Select {
         if !state.is_open() {
             return;
         }
-        for (index, option) in self.options.iter().enumerate() {
-            let option_row = inner.y + 1 + u16::try_from(index).unwrap_or(u16::MAX);
-            if option_row >= inner.bottom() {
+        let rows_below = inner.bottom().saturating_sub(inner.y.saturating_add(1));
+        let list_area = Rect::new(inner.x, inner.y.saturating_add(1), inner.width, rows_below);
+        self.paint_options(list_area, buffer, state);
+    }
+
+    /// Paints the visible option window into `area` — the surface half
+    /// of the dropdown, for floating lists the app resolved with
+    /// `place` and erased with [`Overlay`]. The trigger half is the
+    /// closed render.
+    ///
+    /// One option per row starting at the area's top, the highlighted
+    /// one in [`Select::highlight_style`], the window
+    /// ([`SelectState::visible_window`]) derived from the area's
+    /// height and scrolled minimally with the highlight — clipped at
+    /// the area like every paint.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tuvix_core::buffer::Buffer;
+    /// use tuvix_core::geometry::{Rect, Size};
+    /// use tuvix_core::layer::{Placement, dropdown_rows, place};
+    /// use tuvix_core::widget::Widget;
+    /// use tuvix_widgets::{Block, Overlay, Select, SelectState};
+    ///
+    /// let host = Rect::new(0, 0, 24, 10);
+    /// let trigger = Rect::new(2, 7, 14, 1);
+    /// let mut state = SelectState::new();
+    /// state.open();
+    ///
+    /// // The floating recipe: size the surface, place it, erase it,
+    /// // paint the visible window into the clean rect.
+    /// let rows = dropdown_rows(host, trigger, 3);
+    /// let surface = place(host, trigger, Size::new(12, rows), Placement::Below);
+    /// let mut buffer = Buffer::empty(host);
+    /// Overlay::new(Block::bordered()).render(surface, &mut buffer);
+    /// Select::new(["eu-west", "eu-north", "us-east"])
+    ///     .render_options(Block::bordered().inner(surface), &mut buffer, &state);
+    /// assert!(buffer.to_string().contains("eu-west"));
+    /// ```
+    pub fn render_options(&self, area: Rect, buffer: &mut Buffer, state: &SelectState) {
+        self.paint_options(area, buffer, state);
+    }
+
+    /// The shared option-row painter: the visible window for `area`'s
+    /// height, one option per row from the top.
+    fn paint_options(&self, area: Rect, buffer: &mut Buffer, state: &SelectState) {
+        if area.is_empty() {
+            return;
+        }
+        let window = state.visible_window(self.options.len(), area.height);
+        let right = area.right();
+        for (offset, index) in window.enumerate() {
+            let option_row = area
+                .y
+                .saturating_add(u16::try_from(offset).unwrap_or(u16::MAX));
+            if option_row >= area.bottom() {
                 break;
             }
+            let Some(option) = self.options.get(index) else {
+                continue;
+            };
             // Out-of-range highlights render no row — the same honesty
             // as the Tabs and List selections.
             let style = if index == state.highlight() {
@@ -349,7 +461,7 @@ impl Select {
             } else {
                 self.style
             };
-            let mut option_x = inner.x;
+            let mut option_x = area.x;
             for span in &option.spans {
                 if option_x >= right {
                     break;
@@ -486,6 +598,38 @@ mod tests {
             assert_eq!(state.selected(), Some(1));
             state.set_selected(None);
             assert_eq!(state.selected(), None);
+        }
+
+        // M17 — the visibility window.
+
+        #[test]
+        fn visible_window_scrolls_minimally_and_stays_total() {
+            let mut state = SelectState::new();
+            assert_eq!(state.visible_window(6, 3), 0..3);
+            state.set_highlight(4);
+            assert_eq!(state.visible_window(6, 3), 2..5);
+            state.set_highlight(99);
+            assert_eq!(
+                state.visible_window(6, 3),
+                3..6,
+                "a verbatim out-of-range highlight stays inside the options"
+            );
+            assert_eq!(state.visible_window(6, 0), 0..0, "no rows, no window");
+            assert_eq!(state.visible_window(0, 5), 0..0, "no options, no window");
+        }
+
+        #[test]
+        fn render_options_is_a_noop_on_an_empty_area() {
+            let mut buffer = buffer_16x4();
+            let mut state = SelectState::new();
+            state.open();
+            Select::new(OPTIONS).render_options(Rect::ZERO, &mut buffer, &state);
+            assert!(
+                buffer
+                    .content
+                    .iter()
+                    .all(tuvix_core::buffer::Cell::is_empty)
+            );
         }
     }
 
