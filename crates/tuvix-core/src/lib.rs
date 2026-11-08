@@ -26,6 +26,7 @@ pub mod gesture;
 pub mod hit;
 pub mod journal;
 pub mod keymap;
+pub mod layer;
 pub mod layout;
 pub mod markup;
 pub mod mousemap;
