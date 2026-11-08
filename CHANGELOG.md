@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- M16-A `place` + `Placement` — floating-surface placement: a dropdown opens below its trigger and flips above when the edge is near, a modal centers under the exact M6 rule, a tooltip clamps at the pointer; total at every `u16` corner
-- M16-B `Overlay` — the erase-then-paint compositor: the buffer's pair-repairing clear, stateful passthrough, z-order is paint order
-- M16 prelude wiring, the facade doctest and the `layers` example
+- M17-A `dropdown_rows` — the floating-dropdown sizing decision: content rows capped by the roomiest of the two gaps, so `place`'s flip ladder always opens
+- M17-B `SelectState::visible_window` — the pure scroll window that keeps the highlight visible at any surface height (navigation never points at a clipped option)
+- M17-C `Select::render_options` — the surface half of the dropdown: the visible option window painted into a placed, erased rect
+- M17 the `layers` example rewired to the real floating dropdown, and the `dropdown_rows` facade/prelude export
 ### Documentation
-- M16 architecture decisions, benchmark scorecard and readme
+- M16 the layer module decisions, benchmark scorecard and readme
+- M17 architecture decisions, benchmark scorecard and readme (the status header now tracks M17)
 ### Fixed
 - Repair `Buffer`'s `Display` row wrapping for buffers larger than 65,535 cells (the flat index truncated to `u16` and mis-rowed giant buffers)
 - Make terminal-grid narrowing saturating instead of wrapping: every `usize`/`u32`/`u64` to `u16`/`u8` conversion now goes through `try_from` (escape-sequence cursor addressing, layout segments, table row heights, sparkline rows, snapshot columns)
