@@ -5,7 +5,7 @@
 > architecture for M0-M4 (the shipped foundation, runtime, widget family
 > and ecosystem layer) and the roadmap beyond it.
 >
-> Status: M0 through M17 implemented and green. Every design decision
+> Status: M0 through M18 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -469,6 +469,7 @@ pub trait Backend {
 | **M15 — Forms & selection** | the selection family: `Checkbox` (state-bearing marker glyph, checked-style patch), `RadioGroup` (one highlight per group, out-of-range renders none), `Switch` (knob-in-a-track), `Select` + `SelectState` (open/highlight/commit as a data structure — navigation takes the option count, `choose` commits and closes, dismissal forgets), theme mapping through the existing slots, zero new dependencies; the `forms` example, the form benches and the B18 form-panel paint gate | **done** |
 | **M16 — Floating surfaces** | the layer module: `Placement` (`Below`/`Above`/`Centered`/`At`) and `place` — the flip-then-clamp geometry a popup needs (preferred side, mirror side when the edge is near, nearest host edge when neither fits; size never shrinks except `Centered`, which keeps the exact M6 `Rect::centered` rule; the rect never starts outside its host; total at every `u16` corner through `u32` math), `Overlay` — the erase-then-paint compositor (the buffer's pair-repairing clear, stateful passthrough, z-order is paint order); the `layers` example, the layer benches and the B19 floating-dropdown composite gate | **done** |
 | **M17 — The floating dropdown** | the M15×M16 convergence: `dropdown_rows` — the sizing half of the placement decision (content rows capped by the roomiest of the two gaps, zero content zero rows, a one-row floor for non-empty content, total at the `u16` corners), `SelectState::visible_window` — the pure, List-parity scroll window derived from the highlight (the highlight is always a member; an out-of-range highlight still derives a window inside the options), `Select::render_options` — the surface half of the dropdown as a paint function sharing the inline renderer's painter; the `layers` example rewired to the real composite (no hand-rolled `List`), the dropdown benches and the B20 scrolling-composite gate | **done** |
+| **M18 — The floating surface stack** | the routing half of the floating surfaces: `SurfaceStack<K>` — the open surfaces and their z-order as a type over the app's own pane enum (`push` opens or raises, `close` removes stably, `close_top` is the Esc precedence, `order()` is the bottom-to-top sequence the paint and the hit-map registration both consume, total at every edge), the `layers` example rewired from hand-rolled open flags to the managed stack (Esc dismisses the modal over the dropdown, not the dropdown under the modal), the stack benches (L5/L6) and the B21 stacked-composite gate | **done** |
 
 ## 12. Decision log
 
@@ -1322,3 +1323,44 @@ pub trait Backend {
   frames at 200x60 — the same half-of-B2 envelope B18 and B19 draw,
   ~6x under the 1 ms gate; the L4 bench pins the sizing decision at
   ~5 ns, the same class as the L1–L3 placements.
+
+---
+
+## 25. M18 decisions (2026-11)
+
+- **The routing is a type, the surfaces stay the app's.** M16 shipped
+  the geometry (`place`) and the paint (`Overlay`); M17 closed the
+  single-dropdown seam; the `layers` example still routed two surfaces
+  by hand — two booleans, an if/else paint order and an `Esc` arm that
+  dismissed the dropdown underneath an open modal (the exact bug the
+  M18 contract test pins). `SurfaceStack` is that routing as a type,
+  the `FocusRing`/`Keymap` treatment for floating surfaces: the keys
+  are the app's own pane enum, the widgets and their state stay
+  app-side, and the stack never learns a widget type.
+- **One sequence feeds both halves of the frame.** `order()` is the
+  painter's algorithm as data: paint the base, walk `order()`
+  resolving each surface's geometry (`dropdown_rows` + `place`) and
+  painting it erased (`Overlay`), then register the base and the same
+  sequence into the `HitMap`. Screen and mouse agree on z-order by
+  construction instead of by parallel hand-rolled bookkeeping; raising
+  a surface reorders both with one call.
+- **`close_top` is the Esc precedence, pinned.** The top surface
+  dismisses first — a modal over an open dropdown, then the dropdown.
+  The hand-rolled version of this rule is where apps quietly close the
+  surface underneath the one the user sees; the contract tests pin the
+  precedence and the `layers` example now routes through the stack.
+- **`push` is open-or-raise, told honestly.** Opening a new surface
+  returns `true` (the app initializes its state); pushing an open one
+  raises it to the top and returns `false` (the state stays). The
+  duplicate-free raise is what "bring the dropdown to front" means, and
+  the bool tells the app which of the two happened without a second
+  query.
+- **Total, O(stack height), zero dependencies.** A `Vec` keyed by the
+  app's enum: `push` is a linear scan, `close` a stable removal (the
+  relative order of the rest survives), `close_top` a pop — total at
+  every edge (absent keys, empty stacks), no allocation after warmup,
+  no hidden scroll or focus history. B21 measures the honest
+  three-surface composite at the budget viewport: median ~101 us, p99
+  ~140 us over 300 frames at 200x60 — the same half-of-B2 envelope
+  B18-B20 draw for one surface; the routing decision itself is ~3 ns
+  per op (L5/L6), noise next to the erase-then-paint it schedules.
