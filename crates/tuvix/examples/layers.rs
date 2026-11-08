@@ -149,19 +149,26 @@ fn draw_dashboard(frame: &mut Frame<'_>, app: &mut App) {
     // The floating surfaces paint after the base: z-order is paint
     // order, on the screen and in the hit map alike.
     if app.dropdown_open {
+        // The M17 floating-dropdown recipe: size the surface from the
+        // host's room (`dropdown_rows` — the block's borders ride on
+        // top), place it, erase it, paint the visible option window
+        // into the clean rect. The arrows move the highlight and the
+        // window scrolls with it — every highlighted option stays on
+        // screen, no hand-rolled List in sight.
+        let rows = dropdown_rows(area, trigger_area, REGIONS.len());
         let dropdown = place(
             area,
             trigger_area,
-            Size::new(24, u16::try_from(REGIONS.len() + 2).unwrap_or(u16::MAX)),
+            Size::new(24, rows.saturating_add(2)),
             Placement::Below,
         );
         Overlay::new(Block::bordered().title("region")).render(dropdown, frame.buffer);
-        List::new(REGIONS).render(
+        Select::new(REGIONS).render_options(
             Block::bordered().inner(dropdown),
             frame.buffer,
-            &mut ListState::default(),
+            &app.region,
         );
-        // The trigger re-renders open so the highlight is visible.
+        // The trigger re-renders open so the indicator points up.
         Select::new(REGIONS)
             .label("region")
             .render(trigger_area, frame.buffer, &mut app.region);
