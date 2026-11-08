@@ -69,9 +69,16 @@ unsafe impl GlobalAlloc for CountingAlloc {
         layout: std::alloc::Layout,
         new_size: usize,
     ) -> *mut u8 {
-        let delta = isize::try_from(new_size).unwrap_or(isize::MAX)
-            - isize::try_from(layout.size()).unwrap_or(isize::MAX);
-        ALLOCATED.fetch_add(delta.unsigned_abs(), Ordering::Relaxed);
+        // The size delta is signed bookkeeping: a growth adds, a
+        // shrink *subtracts*. (An `unsigned_abs` fetch_add here would
+        // credit the released bytes back as live ones — the live-bytes
+        // gate inflates on every shrinking realloc.)
+        let old_size = layout.size();
+        if new_size >= old_size {
+            ALLOCATED.fetch_add(new_size - old_size, Ordering::Relaxed);
+        } else {
+            ALLOCATED.fetch_sub(old_size - new_size, Ordering::Relaxed);
+        }
         // SAFETY: verbatim delegation; see the crate safety argument.
         unsafe { System.realloc(pointer, layout, new_size) }
     }
@@ -100,5 +107,31 @@ mod tests {
         drop(owned);
         let after = super::allocated_bytes();
         assert!(after <= during - 4096, "the drop released the buffer");
+    }
+
+    /// A shrinking `realloc` releases bytes: once the allocation is
+    /// dropped the counter must be back at its baseline. `Vec`'s
+    /// `shrink_to_fit` routes through `GlobalAlloc::realloc`, so the
+    /// shrink path is exercised deterministically (a shrinking realloc
+    /// that *adds* the released bytes leaves the counter inflated —
+    /// exactly the bug this test pins).
+    #[test]
+    fn shrinking_reallocs_release_their_bytes() {
+        let before = super::allocated_bytes();
+        let mut owned = vec![0_u8; 1_048_576];
+        owned.truncate(4);
+        owned.shrink_to_fit();
+        drop(owned);
+        let after = super::allocated_bytes();
+        // Nothing stays live across the window; the residual counts the
+        // harness's own background allocations (libtest's capture thread
+        // allocates on another thread), so the allowance is generous —
+        // a shrinking realloc that *adds* the released bytes inflates
+        // the counter by the full 1,048,572 and dwarfs it.
+        assert!(
+            after <= before + 65_536,
+            "the shrinking realloc inflated the live counter by {} bytes",
+            after.saturating_sub(before)
+        );
     }
 }
