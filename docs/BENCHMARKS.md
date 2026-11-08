@@ -14,6 +14,23 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M18 scorecard (2026-11)
+
+The M18 additions (`tuvix-core/benches/layer.rs` L5–L6,
+`tuvix-widgets/benches/stack.rs`, the B21 gate in
+`tuvix-widgets/tests/m18_surface_stack.rs`, criterion 0.8.2, release
+profile):
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `layer/l5_surface_stack_push_raise` | one routing event over an 8-surface stack: raise an open surface, dismiss the top, open a new one | **~9.3 ns** | pass |
+| `layer/l6_surface_stack_close_and_walk` | one frame walk over an 8-surface stack: close a middle surface by value, reopen it, iterate `order()` — the paint and hit-map registration sequence | **~11.4 ns** | pass |
+| `gates/m18_stack_composite_200x60` | the B21 composite: the bordered 200x60 dashboard plus the dropdown (100 options, window scrolled), the tooltip and the modal routed through a fresh `SurfaceStack` | **~137 us** | pass |
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B21 stacked composite: the dashboard base plus the dropdown (100 options, window scrolled), the tooltip and the modal routed through the stack, 300-frame run @ 200x60 | p99 <= 1 ms | **median 100.8 us, p99 139.8 us, max 177.1 us** | pass — **~7x headroom**; three managed surfaces cost the same half-of-B2 envelope B18–B20 draw for one, and the routing decision itself is ~3 ns per op — the stack is free next to the erase-then-paint it schedules |
+
 ## M17 scorecard (2026-11)
 
 The M17 additions (`tuvix-core/benches/layer.rs`, the B20 gate in
