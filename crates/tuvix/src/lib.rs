@@ -260,7 +260,7 @@ pub use tuvix_backend_crossterm as backend_crossterm;
 pub use tuvix_backend_crossterm::{CrosstermBackend, CrosstermEvents, to_tuvix_event};
 pub use tuvix_backend_termion as backend_termion;
 pub use tuvix_backend_termion::{TermionBackend, TermionEvents};
-pub use tuvix_core::layer::{Placement, place};
+pub use tuvix_core::layer::{Placement, dropdown_rows, place};
 pub use tuvix_core::layout::Flex;
 pub use tuvix_core::markup::{MarkupError, parse_line, parse_spans, parse_text};
 pub use tuvix_core::{line, span, text};
@@ -313,7 +313,7 @@ pub mod prelude {
     pub use tuvix_core::gesture::{Gesture, GestureConfig, GestureRecognizer, ScrollKind};
     pub use tuvix_core::hit::{Hit, HitMap};
     pub use tuvix_core::keymap::{KeyPattern, Keymap, KeymapOutcome};
-    pub use tuvix_core::layer::{Placement, place};
+    pub use tuvix_core::layer::{Placement, dropdown_rows, place};
     pub use tuvix_core::layout::{Constraint, Flex, Layout};
     pub use tuvix_core::markup::{MarkupError, parse_line, parse_spans, parse_text};
     pub use tuvix_core::mousemap::{
