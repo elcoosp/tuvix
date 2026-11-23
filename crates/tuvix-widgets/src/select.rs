@@ -20,14 +20,19 @@
 //! the trigger is the closed render, and [`Select::render_options`]
 //! paints the visible option window into a rect the app resolved with
 //! `place` ([`Placement::Below`](tuvix_core::layer::Placement)) and
-//! erased with [`Overlay`] — the floating dropdown as a composite of
+//! erased with [`crate::overlay::Overlay`] — the floating dropdown as a composite of
 //! the two primitives, with the sizing from
-//! [`dropdown_rows`](tuvix_core::layer::dropdown_rows).
+//! [`dropdown_rows`](tuvix_core::layer::dropdown_rows). And since M19
+//! the pointer reads the surface back:
+//! [`SelectState::option_at`] answers which option a clicked row
+//! belongs to — the inverse of the windowed paint, so the M14 pointer
+//! layer (hit map, gestures, mouse map) resolves a click on the
+//! floating dropdown through the same window the keyboard navigates.
 
 use std::ops::Range;
 
 use tuvix_core::buffer::Buffer;
-use tuvix_core::geometry::Rect;
+use tuvix_core::geometry::{Position, Rect};
 use tuvix_core::style::Style;
 use tuvix_core::text::{Line, Span};
 use tuvix_core::widget::RenderWidget;
@@ -173,6 +178,49 @@ impl SelectState {
         };
         let start = start.min(count - visible);
         start..start + visible
+    }
+
+    /// The clicked option: the inverse of the option paint — which
+    /// option renders at `position`, given the option `count` and the
+    /// `area` the renderer painted the window into. `None` when the
+    /// position is not on a painted option row.
+    ///
+    /// The window ([`SelectState::visible_window`]) is derived exactly
+    /// as `render_options` derives it, so a click on an option row
+    /// answers that option's absolute index wherever the window
+    /// scrolled — the pointer and the keyboard agree through one
+    /// window. Positions outside `area` and the rows below the painted
+    /// window (a surface taller than its content) answer `None`: the
+    /// chrome and the blank tail are not options. The query is pure —
+    /// it reads the highlight, it writes nothing, and it answers by
+    /// geometry whether the dropdown is open or not, the same way
+    /// [`Select::render_options`] decides nothing about open state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tuvix_core::geometry::{Position, Rect};
+    /// use tuvix_widgets::SelectState;
+    ///
+    /// let mut state = SelectState::new();
+    /// state.set_highlight(4);
+    ///
+    /// // A three-row window scrolled to the highlight.
+    /// let area = Rect::new(2, 5, 12, 3);
+    /// assert_eq!(state.option_at(6, area, Position::new(3, 5)), Some(2));
+    /// assert_eq!(state.option_at(6, area, Position::new(3, 7)), Some(4));
+    /// assert_eq!(state.option_at(6, area, Position::new(1, 6)), None, "left of the area");
+    /// assert_eq!(state.option_at(6, area, Position::new(3, 8)), None, "below the window");
+    /// ```
+    #[must_use]
+    pub fn option_at(&self, count: usize, area: Rect, position: Position) -> Option<usize> {
+        if area.is_empty() || !area.contains(position) {
+            return None;
+        }
+        let window = self.visible_window(count, area.height);
+        let row = usize::from(position.y - area.y);
+        let index = window.start + row;
+        (index < window.end).then_some(index)
     }
 
     /// Commits the highlighted row as the selection and closes the list.
@@ -399,7 +447,7 @@ impl Select {
 
     /// Paints the visible option window into `area` — the surface half
     /// of the dropdown, for floating lists the app resolved with
-    /// `place` and erased with [`Overlay`]. The trigger half is the
+    /// `place` and erased with [`crate::overlay::Overlay`]. The trigger half is the
     /// closed render.
     ///
     /// One option per row starting at the area's top, the highlighted

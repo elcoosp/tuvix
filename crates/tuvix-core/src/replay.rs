@@ -251,7 +251,7 @@ impl SessionReplay {
 
     ///
     /// # Errors
-    /// Returns [`SessionError`] when the document is not a valid replay
+    /// Returns [`crate::session::SessionError`] when the document is not a valid replay
     /// JSON document: malformed values or an unsupported version.
     /// Parses a session JSON document (the M9 export format) into a
     /// replay. Strict: hand-edited documents fail with byte offsets.

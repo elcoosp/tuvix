@@ -2,8 +2,9 @@
 
 > **tuvix** — a high-performance terminal UI framework for Rust with
 > best-in-class developer experience. This document is the definitive
-> architecture for M0-M4 (the shipped foundation, runtime, widget family
-> and ecosystem layer) and the roadmap beyond it.
+> architecture for M0-M19 (the shipped foundation, runtime, widget
+> family, ecosystem layer and the interaction and floating-surface
+> arcs) and the roadmap beyond them.
 >
 > Status: M0 through M18 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
@@ -76,6 +77,20 @@
 > into the placed surface (B20: a 100-option scrolling dropdown
 > composites over a 200x60 dashboard in a median ~115 us, ~6x under
 > the gate).
+> M18 ships the surface stack: `SurfaceStack<K>` — the open surfaces
+> and their z-order as a type over the app's own pane enum, `order()`
+> the one bottom-to-top sequence the paint and the hit-map
+> registration both consume, `close_top` the Esc precedence (B21: the
+> three-surface stacked composite repaints in a median ~101 us at
+> 200x60, ~7x under the gate).
+> M19 closes the floating-surface arc's last seam: the pointer half of
+> the dropdown — `SelectState::option_at` answers which option a
+> clicked row paints, the inverse of the windowed paint through the
+> same `visible_window` the keyboard navigates, and the `layers`
+> example registers the hit map in the same `order()` walk it paints
+> (B22: the full click decision — hit-test through the registered
+> surface map plus the inverse query on the 100-option windowed
+> surface — costs ~5 ns against a 1 us ceiling).
 
 ---
 
@@ -470,6 +485,7 @@ pub trait Backend {
 | **M16 — Floating surfaces** | the layer module: `Placement` (`Below`/`Above`/`Centered`/`At`) and `place` — the flip-then-clamp geometry a popup needs (preferred side, mirror side when the edge is near, nearest host edge when neither fits; size never shrinks except `Centered`, which keeps the exact M6 `Rect::centered` rule; the rect never starts outside its host; total at every `u16` corner through `u32` math), `Overlay` — the erase-then-paint compositor (the buffer's pair-repairing clear, stateful passthrough, z-order is paint order); the `layers` example, the layer benches and the B19 floating-dropdown composite gate | **done** |
 | **M17 — The floating dropdown** | the M15×M16 convergence: `dropdown_rows` — the sizing half of the placement decision (content rows capped by the roomiest of the two gaps, zero content zero rows, a one-row floor for non-empty content, total at the `u16` corners), `SelectState::visible_window` — the pure, List-parity scroll window derived from the highlight (the highlight is always a member; an out-of-range highlight still derives a window inside the options), `Select::render_options` — the surface half of the dropdown as a paint function sharing the inline renderer's painter; the `layers` example rewired to the real composite (no hand-rolled `List`), the dropdown benches and the B20 scrolling-composite gate | **done** |
 | **M18 — The floating surface stack** | the routing half of the floating surfaces: `SurfaceStack<K>` — the open surfaces and their z-order as a type over the app's own pane enum (`push` opens or raises, `close` removes stably, `close_top` is the Esc precedence, `order()` is the bottom-to-top sequence the paint and the hit-map registration both consume, total at every edge), the `layers` example rewired from hand-rolled open flags to the managed stack (Esc dismisses the modal over the dropdown, not the dropdown under the modal), the stack benches (L5/L6) and the B21 stacked-composite gate | **done** |
+| **M19 — The clickable surface** | the pointer half of the floating dropdown, the M14×M15×M16×M17×M18 convergence: `SelectState::option_at` — the inverse of the windowed paint as a pure query next to `visible_window` (absolute option indexes wherever the window scrolled, `None` off the surface and below the painted window, total at every corner, stateless like the window it mirrors), the `layers` example completing M18's one-sequence promise — the same `order()` walk paints and registers the hit map, the `MouseMap` routes the clicks and `option_at` feeds the commit path (`choose`); the pointer bench and the B22 click-decision gate | **done** |
 
 ## 12. Decision log
 
@@ -1364,3 +1380,45 @@ pub trait Backend {
   ~140 us over 300 frames at 200x60 — the same half-of-B2 envelope
   B18-B20 draw for one surface; the routing decision itself is ~3 ns
   per op (L5/L6), noise next to the erase-then-paint it schedules.
+
+---
+
+## 26. M19 decisions (2026-11)
+
+- **The click is the paint, read backwards.** M17 shipped the window
+  as a pure query because the renderer never writes the state; M19
+  ships the same discipline for the pointer: `option_at` derives the
+  identical `visible_window` the renderer derived and inverts the row
+  math, so the option a click answers is by construction the option
+  the renderer painted there. No second source of truth: the pointer
+  and the keyboard agree through one window, at every scroll position,
+  on every surface height.
+- **Chrome is not an option.** The query answers `None` off the
+  surface, on the rows below the painted window (a surface taller than
+  its content) and with zero options — the borders and the blank tails
+  are not invisible options, the same honesty as an out-of-range
+  highlight painting no row. The app hands the query the rect it
+  painted into (the block's inner area), so the borders are chrome by
+  construction.
+- **One sequence, both halves of the frame — the promise kept.** M18
+  named `order()` the paint and hit-map registration sequence; the
+  example still shipped no hit map. M19's example registers `Base` and
+  the trigger first, then each surface's resolved rect in `order()`,
+  and the mouse resolves through the same painter's algorithm the eye
+  sees: the dropdown covers the trigger, the modal covers both, an
+  outside click dismisses the top surface. State sync rides dismissal,
+  not the render — the toggle and the dismissal paths own
+  `SelectState::close`, the one repair the hand-rolled example quietly
+  skipped.
+- **The commit path stays `choose`.** The click highlights (the same
+  `set_highlight` the keyboard takes) and commits through the same
+  `choose()` `Enter` takes — the pointer adds a route to the state
+  machine, not a second state machine. The query is stateless; the app
+  decides when to ask, the same way it decides when to paint the
+  surface.
+- **B22 measures the decision, the composite is unchanged.** The
+  honest cost of a click is the routing: hit-test through the
+  registered surface map plus the inverse query — ~5 ns measured, the
+  L5/L6 routing class, 200x under the 1 us event ceiling B17 draws.
+  The repaint a commit may trigger is the B20/B21 composite, already
+  measured; the pointer adds a rounding error to a rounding error.

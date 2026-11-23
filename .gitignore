@@ -8,3 +8,5 @@ Cargo.lock.bak
 
 # local release-prep script (never ships)
 ship.sh
+# local PR description for the shipping script (never ships)
+.github/pr-body.md

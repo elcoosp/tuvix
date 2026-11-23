@@ -259,6 +259,7 @@ pub use tuvix_backend_ansi::AnsiBackend;
 pub use tuvix_backend_crossterm as backend_crossterm;
 pub use tuvix_backend_crossterm::{CrosstermBackend, CrosstermEvents, to_tuvix_event};
 pub use tuvix_backend_termion as backend_termion;
+#[cfg(unix)]
 pub use tuvix_backend_termion::{TermionBackend, TermionEvents};
 pub use tuvix_core::layer::{Placement, SurfaceStack, dropdown_rows, place};
 pub use tuvix_core::layout::Flex;

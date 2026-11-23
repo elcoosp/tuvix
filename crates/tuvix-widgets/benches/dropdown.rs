@@ -13,7 +13,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tuvix_core::buffer::Buffer;
-use tuvix_core::geometry::{Rect, Size};
+use tuvix_core::geometry::{Position, Rect, Size};
 use tuvix_core::layer::{Placement, dropdown_rows, place};
 use tuvix_core::style::Style;
 use tuvix_core::text::Line;
@@ -90,5 +90,46 @@ fn bench_dropdown(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_dropdown);
+/// The M19 pointer decision: the inverse query over the windowed
+/// surface, what every click (and every hover restyle) pays.
+fn bench_option_at(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dropdown");
+
+    // The same geometry the B20/B21 composites use: the 100-option
+    // dropdown placed over the 200x60 dashboard, the window scrolled
+    // to the middle of the list.
+    let host = Rect::new(0, 0, WIDTH, HEIGHT);
+    let trigger_area = Rect::new(1, 21, WIDTH - 2, 1);
+    let surface = place(
+        host,
+        trigger_area,
+        Size::new(
+            30,
+            dropdown_rows(host, trigger_area, OPTIONS).saturating_add(2),
+        ),
+        Placement::Below,
+    );
+    let options_area = Block::bordered().inner(surface);
+    let mut state = SelectState::new();
+    state.open();
+    for _ in 0..(OPTIONS / 2) {
+        state.select_next(OPTIONS);
+    }
+
+    // One pointer decision on the surface: the probed cell sits on the
+    // window's scrolled middle, where the honest answer lives.
+    let mid_row =
+        u16::try_from(OPTIONS / 2 - state.visible_window(OPTIONS, options_area.height).start)
+            .unwrap_or(u16::MAX)
+            .min(options_area.height - 1);
+    let position = Position::new(options_area.x + 5, options_area.y + mid_row);
+
+    group.bench_function("m19_option_at_windowed_100", |b| {
+        b.iter(|| black_box(state.option_at(OPTIONS, options_area, position)));
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_dropdown, bench_option_at);
 criterion_main!(benches);

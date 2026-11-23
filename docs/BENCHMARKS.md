@@ -14,6 +14,20 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M19 scorecard (2026-11)
+
+The M19 additions (`tuvix-widgets/benches/dropdown.rs`, the B22 gate in
+`tuvix-widgets/tests/m19_surface_pointer.rs`, criterion 0.8.2, release
+profile):
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `dropdown/m19_option_at_windowed_100` | one pointer decision: the inverse query on the 100-option windowed surface at the 200x60 budget viewport (the window scrolled to the highlight) | **~7.4 ns** | pass |
+
+| Gate | Target | Measured | Verdict |
+| --- | --- | --- | --- |
+| B22 floating-dropdown click decision: hit-test through the registered surface map (base + trigger + dropdown + modal), the region match and `option_at` on the 100-option windowed surface | decision <= 1 us | **~5 ns** | pass — **200x headroom**; the click decision is the L5/L6 routing class — the pointer adds a rounding error to the composite B21 already measures |
+
 ## M18 scorecard (2026-11)
 
 The M18 additions (`tuvix-core/benches/layer.rs` L5–L6,
