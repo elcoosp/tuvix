@@ -78,11 +78,11 @@ Paste it into a new crate (or run the full version with `cargo run -p tuvix --ex
 
 - **Input preempts render.** The cooperative scheduler in tuvix-core coalesces render requests into one frame, probes for waiting keystrokes, and discards an abandoned pass instead of committing it; the yield decision costs ~2.0 ns and an idle tick ~0.33 ns (`docs/BENCHMARKS.md`, M8 gates).
 - **Three backends behind one contract.** crossterm for cross-platform mode control (Linux, macOS, Windows), termion for unix, and a zero-dependency ANSI engine over any `Write` target — all with persistent raster state, cursor economy and EL elision, plus a backend-agnostic event model.
-- **The widget set ships in the box.** Paragraph, List, Table, Tabs, Tree, Chart, BarChart, Canvas, Gauge, LineGauge, Sparkline, Scrollbar, Scrollable, Input, TextArea (exact coalescing undo/redo), Checkbox, RadioGroup, Switch, Select and Clear — one `RenderWidget` contract for stateful widgets, one `.theme(&Theme)` builder per widget, `NO_COLOR` honored everywhere.
+- **The widget set ships in the box.** Paragraph, List, Table, Tabs, Tree, Chart, BarChart, Canvas, Gauge, LineGauge, Sparkline, Scrollbar, Scrollable, Input, TextArea (exact coalescing undo/redo), Checkbox, RadioGroup, Switch, Select, Spinner and Clear — one `RenderWidget` contract for stateful widgets, one `.theme(&Theme)` builder per widget, `NO_COLOR` honored everywhere.
 - **Time-travel tooling built in.** A `SessionRecorder` timeline of frames and input events, `Screen` snapshot reconstruction, a `FrameInspector` scrub overlay, JSON golden sessions, and `SessionReplay` — the loop that replays a recorded session through your app and names the frame that diverged. A TCP preview tap lets you watch a live app from another terminal.
 - **Async events without an async runtime.** The event stream is std-only and speaks the standard waker protocol, so tokio, smol, async-std or a 30-line hand-rolled `block_on` (`crates/tuvix/examples/async_events.rs`) all await it.
 - **A C embedding boundary.** Hosts drive the screen with one flat, versioned `TVX` mutation packet per frame — strict byte-offset errors, all-or-nothing apply, snapshot read-back — through the `tuvix-ffi` C ABI (`tuvix.h` ships with the crate); the B15 gate measures ~9.3M mutations/sec across the raw ABI.
-- **Interaction depth.** A declarative `Keymap` with multi-key chords (`g g`), a `FocusRing` router, a mouse stack (painter's-algorithm `HitMap`, `GestureRecognizer`, declarative `MouseMap`), and a motion layer of 16 easing curves with frame-rate-independent `Tween`s and an `Animator` whose `is_idle()` stops the loop when nothing moves.
+- **Interaction depth.** A declarative `Keymap` with multi-key chords (`g g`), a `FocusRing` router, a mouse stack (painter's-algorithm `HitMap`, `GestureRecognizer`, declarative `MouseMap`), and a motion layer of 16 easing curves with frame-rate-independent `Tween`s and an `Animator` whose `is_idle()` stops the loop when nothing moves. The M20 `Spinner` is the motion layer's first widget: the frame index is a pure function of elapsed time, so a 60 fps loop and a 5 fps one land on the same glyph, and a stopped clock freezes the frame in place.
 - **Floating surfaces with honest geometry.** `place` resolves where a surface goes — a dropdown opens below its trigger and flips above when the edge is near, a modal centers under the M6 rule, a tooltip clamps at the pointer — while `Overlay` composites it: erase (wide-glyph pairs repaired), then paint. Z-order is paint order, on the screen and in the hit map alike. The M17 composite closes the loop: `dropdown_rows` sizes the surface at the roomiest gap, `Select::render_options` paints the visible option window into it, and the highlight scrolls with navigation — a 100-option floating dropdown composites in ~115 us. The M18 stack closes the routing loop: `SurfaceStack` owns which surfaces are open, in what z-order they paint and which one `Esc` dismisses — one `order()` sequence drives the paint and the hit map alike (the `layers` example is the managed recipe). M19 closes the pointer half: `SelectState::option_at` answers which option a clicked row paints — the same window the keyboard navigates — and the `layers` example registers the hit map in the same `order()` walk it paints, so a click, `Esc` and the mouse map all agree with what the eye sees (the full click decision costs ~5 ns).
 
 ## How it works
@@ -120,6 +120,7 @@ cargo run -p tuvix --example notes           # TextArea editing with a golden re
 cargo run -p tuvix --example devtools        # record, scrub, inspect, export sessions
 cargo run -p tuvix --example preview         # watch the app from another terminal
 cargo run -p tuvix --example animation       # the easing gallery and the idle-deciding loop
+cargo run -p tuvix --example spinner         # the animated indicator over three clocks
 cargo run -p tuvix --example mouse           # hit map, gestures and the mouse map
 cargo run -p tuvix --example async_events    # the async stream with a hand-rolled block_on
 cargo run -p tuvix --example embed           # a host drives the screen through mutation packets
@@ -134,11 +135,11 @@ The design document — principles, pipeline, layout solver, event model, testin
 ## Status
 
 > [!NOTE]
-> tuvix is pre-1.0 (v0.15.0), developed milestone-by-milestone with the architecture doc tracking M0 through M19 as implemented. Per [`docs/PLATFORMS.md`](docs/PLATFORMS.md): the crossterm backend covers Linux, macOS and Windows (conhost and Windows Terminal); the termion backend is unix-only; the ANSI backend writes to any `Write` target. Unix-socket previews are unix-only (TCP previews work on all three), and OSC 8 hyperlinks and the OSC 52 clipboard degrade gracefully where a terminal does not support them. CI exercises the full suite and doctests natively on all three operating systems, plus a Rust 1.88 MSRV job.
+> tuvix is pre-1.0 (v0.15.0), developed milestone-by-milestone with the architecture doc tracking M0 through M20 as implemented. Per [`docs/PLATFORMS.md`](docs/PLATFORMS.md): the crossterm backend covers Linux, macOS and Windows (conhost and Windows Terminal); the termion backend is unix-only; the ANSI backend writes to any `Write` target. Unix-socket previews are unix-only (TCP previews work on all three), and OSC 8 hyperlinks and the OSC 52 clipboard degrade gracefully where a terminal does not support them. CI exercises the full suite and doctests natively on all three operating systems, plus a Rust 1.88 MSRV job.
 
 ## Learn more
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the full design: principles, rendering pipeline, backend contract, decision log
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) — criterion baselines and the timing gates enforced on a weekly CI schedule
 - [`docs/PLATFORMS.md`](docs/PLATFORMS.md) — the platform support matrix
-- [`crates/tuvix/examples/`](crates/tuvix/examples/) — sixteen runnable apps, from the hello loop to the embedding boundary
+- [`crates/tuvix/examples/`](crates/tuvix/examples/) — seventeen runnable apps, from the hello loop to the embedding boundary
