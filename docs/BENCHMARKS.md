@@ -14,6 +14,20 @@ Recorded with criterion 0.8.2.
   (`.github/workflows/perf.yml`, weekly + on demand) — benchmarks are not
   just recorded, they are enforced.
 
+## M20 scorecard (2026-11)
+
+The M20 additions (`tuvix-widgets/benches/widgets.rs` M20 group, criterion
+0.8.2, release profile, same CI-class sandbox, Rust 1.100.0):
+
+| Bench | What it measures | Measured | Verdict |
+| --- | --- | --- | --- |
+| `widgets/spinner_dots_running_200x1` | the animated indicator row: glyph + separator + label at frame 4 of the dots set, into a fresh 200-wide buffer | **~1.06 us** (186 Melem/s) | pass |
+| `widgets/spinner_dots_stopped_200x1` | the stopped row: the same paint with the `muted` patch applied | **~1.10 us** | pass |
+
+No new timing gate: the row paints in the M15 one-row family envelope
+(checkbox ~1.6 us, switch ~1.3 us) and the frame decision is integer
+division — see the M20 decisions in ARCHITECTURE.md §27.
+
 ## M19 scorecard (2026-11)
 
 The M19 additions (`tuvix-widgets/benches/dropdown.rs`, the B22 gate in
