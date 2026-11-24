@@ -2,18 +2,20 @@
 //! buffers at the architecture budget viewport.
 
 use std::hint::black_box;
+use std::time::Duration;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tuvix_core::buffer::Buffer;
 use tuvix_core::geometry::Rect;
 use tuvix_core::layout::{Constraint, Layout};
 use tuvix_core::style::{Color, Style};
+use tuvix_core::stylize::Stylize as _;
 use tuvix_core::widget::{RenderWidget, Widget};
 use tuvix_widgets::{
     Axis, Bar, BarChart, BarGroup, Block, Chart, Checkbox, Dataset, Gauge, GraphType, Input,
     InputState, LineGauge, List, ListItem, ListState, RadioGroup, Scrollbar, ScrollbarOrientation,
-    ScrollbarState, Select, SelectState, Sparkline, Switch, Table, TableRow, TableState, Tabs,
-    Tree, TreeItem, TreeState,
+    ScrollbarState, Select, SelectState, Sparkline, Spinner, SpinnerState, Switch, Table, TableRow,
+    TableState, Tabs, Tree, TreeItem, TreeState,
 };
 
 /// The architecture budget viewport: 200x60.
@@ -578,6 +580,43 @@ fn bench_gates_m15(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_widgets_m20(c: &mut Criterion) {
+    let mut group = c.benchmark_group("widgets");
+    group.throughput(Throughput::Elements(u64::from(WIDTH)));
+    let area = Rect::new(0, 0, WIDTH, 1);
+
+    group.bench_function("spinner_dots_running_200x1", |b| {
+        let spinner = Spinner::dots()
+            .label("loading")
+            .style(Style::new().fg(Color::Cyan));
+        let mut state = SpinnerState::new();
+        state.advance(Duration::from_millis(360)); // frame 4 of the dots set
+        b.iter(|| {
+            let mut buffer = Buffer::empty(area);
+            spinner
+                .clone()
+                .render(black_box(area), &mut buffer, black_box(&mut state));
+        });
+    });
+
+    group.bench_function("spinner_dots_stopped_200x1", |b| {
+        let spinner = Spinner::dots()
+            .label("loading")
+            .style(Style::new().fg(Color::Cyan))
+            .stopped_style(Style::new().dim());
+        let mut state = SpinnerState::new();
+        state.stop();
+        b.iter(|| {
+            let mut buffer = Buffer::empty(area);
+            spinner
+                .clone()
+                .render(black_box(area), &mut buffer, black_box(&mut state));
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_widgets_bars,
@@ -588,6 +627,7 @@ criterion_group!(
     bench_widgets_m9,
     bench_widgets_m10,
     bench_widgets_m15,
+    bench_widgets_m20,
     bench_widget_suite,
     bench_gates_m15
 );
