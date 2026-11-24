@@ -2,11 +2,11 @@
 
 > **tuvix** — a high-performance terminal UI framework for Rust with
 > best-in-class developer experience. This document is the definitive
-> architecture for M0-M19 (the shipped foundation, runtime, widget
+> architecture for M0-M20 (the shipped foundation, runtime, widget
 > family, ecosystem layer and the interaction and floating-surface
 > arcs) and the roadmap beyond them.
 >
-> Status: M0 through M18 implemented and green. Every design decision
+> Status: M0 through M20 implemented and green. Every design decision
 > below is grounded in a first-hand study of the dominant competitors
 > (ratatui 0.30, crossterm 0.29), cloned and analyzed before a line of
 > tuvix code was written. M1 ships the compact-cell text pipeline, the
@@ -91,6 +91,13 @@
 > (B22: the full click decision — hit-test through the registered
 > surface map plus the inverse query on the 100-option windowed
 > surface — costs ~5 ns against a 1 us ceiling).
+> M20 closes the DX gap the ecosystem leaves open: the animated
+> indicator — `Spinner` + `SpinnerState`, the motion layer's first
+> widget: the frame index is a pure function of elapsed time (a
+> 60 fps loop and a 5 fps one land on the same glyph), the paused
+> clock freezes the frame in place, the curated glyph sets are
+> single-width, and the paint maps through the existing accent and
+> muted theme slots (~1.1 us per row at 200 columns).
 
 ---
 
@@ -173,6 +180,13 @@
     mapping through the existing thirteen slots, and the dropdown's
     open/highlight/commit machinery as a plain data structure
     (`select_next(count)` takes the option count — the M7 tree honesty).
+14. **The in-tree animated indicator (M20)** — `Spinner` +
+    `SpinnerState` ship the loading indicator the ecosystem also leaves
+    to third-party crates, one level up from the M13 motion layer: the
+    frame index is a pure function of elapsed time, so the render rate
+    never bends the animation, the paused clock freezes honestly, and
+    the paint maps through the existing theme slots with zero new
+    dependencies.
 
 ## 2. Principles
 
@@ -217,6 +231,7 @@ tuvix/
 │   │   │                        # TreeState)
 │   │   │                        # M15: Checkbox, RadioGroup, Switch,
 │   │   │                        # Select(+SelectState)
+│   │   │                        # M20: Spinner(+SpinnerState)
 │   ├── tuvix-backend-crossterm/  # ANSI renderer + event bridge + reader
 │   │   └── deps: crossterm 0.29
 │   ├── tuvix-backend-ansi/       # M5: the dependency-free ANSI renderer
@@ -233,7 +248,10 @@ tuvix/
 │                                 # (M5); examples: hello, async_events,
 │                                 # widgets, preview, simple_backend (M5),
 │                                 # termion_hello (M5), inputs (M6),
-│                                 # data_view (M7)
+│                                 # data_view (M7); the later milestones add
+│                                 # interaction, forms, layers, notes,
+│                                 # devtools, animation, mouse, embed and
+│                                 # spinner (M20)
 ├── docs/                        # ARCHITECTURE.md, BENCHMARKS.md,
 │                                # PLATFORMS.md (M4), RELEASE.md
 ├── .github/workflows/           # ci.yml, perf.yml (M4), release.yml
@@ -252,7 +270,7 @@ tuvix (facade)
  └── tuvix-core
 ```
 
-All six crates share `edition = "2024"`, `rust-version = "1.88"`, the
+All eight crates share `edition = "2024"`, `rust-version = "1.88"`, the
 workspace `[lints]` (`clippy::pedantic` + `unsafe_code = "forbid"` +
 `missing_docs`) and are gated by CI with `-D warnings`. The runtime added
 **zero new dependencies**: the event stream and runner are std-only. M2,
@@ -407,6 +425,14 @@ pub trait Backend {
 | BarChart (M7) | floor-scaled heights, pinned max, clamping, zero-value/no-max no-ops, bar width/gap/group-gap geometry, value text centered above the bar top (skipped at the ceiling or when wider than the bar), custom `text_value`, bar + group label rows reserved only by rendered content, trailing bar/group dropping, style layering chart→group→bar→value, theme mapping (bars = `sparkline` slot, labels = `axis` slot), block wrap, `Widget` pass-through |
 | Tree (M7) | depth-first flattening over the collapsed set, box-drawing guides per level (`│` continuation, `└─`/`├─` connectors), collapsed descendants hidden, navigation over visible nodes (next/previous saturation, first/last), empty-tree selection clearing, minimal scroll for the selection, offset windows, clipping, style layering, highlight, block wrap, `RenderWidget` pass-through, theme mapping (highlight slot) |
 | Forms (M15) | per-widget unit tests pinning marker glyphs and widths, style patching (checked = accent, selected = highlight, off-track = muted), first-row discipline, clipping, block wrap, theme slots; `SelectState` state machine (open re-syncs the highlight, `select_next(count)` clamps at the count, `choose` commits only when open, dismissal forgets navigation, out-of-range paints nothing); `tests/m15_forms.rs` gates the family through `Terminal` + `TestBackend`: the settings panel, the choice flow end to end, a keyboard-session-vs-direct-selection differential, theme mapping across all four widgets, wide-glyph pair honesty, and the B18 form-panel paint gate |
+| Spinner (M20) | unit tests pinning the frame math (`elapsed / period`
+modulo the count, zero glyphs and a zero period pin frame 0, saturating
+elapsed), the stopped-clock freeze and reset, custom sets verbatim,
+first-row discipline, label clipping, block wrap, theme slots;
+`tests/m20_spinner.rs` gates the contract through plain buffers: the
+60 fps vs 5 fps vs one-hop differential (the frame index is a pure
+function of elapsed time), the frozen stopped frame, theme mapping and
+the shared, app-owned state |
 | Widgets | rendered into plain `Buffer`s, compared as strings |
 | Docs | every doc example is a doctest (`cargo test --doc`); panic-hook tests serialize on a dedicated lock so parallel test execution stays deterministic |
 
@@ -486,6 +512,18 @@ pub trait Backend {
 | **M17 — The floating dropdown** | the M15×M16 convergence: `dropdown_rows` — the sizing half of the placement decision (content rows capped by the roomiest of the two gaps, zero content zero rows, a one-row floor for non-empty content, total at the `u16` corners), `SelectState::visible_window` — the pure, List-parity scroll window derived from the highlight (the highlight is always a member; an out-of-range highlight still derives a window inside the options), `Select::render_options` — the surface half of the dropdown as a paint function sharing the inline renderer's painter; the `layers` example rewired to the real composite (no hand-rolled `List`), the dropdown benches and the B20 scrolling-composite gate | **done** |
 | **M18 — The floating surface stack** | the routing half of the floating surfaces: `SurfaceStack<K>` — the open surfaces and their z-order as a type over the app's own pane enum (`push` opens or raises, `close` removes stably, `close_top` is the Esc precedence, `order()` is the bottom-to-top sequence the paint and the hit-map registration both consume, total at every edge), the `layers` example rewired from hand-rolled open flags to the managed stack (Esc dismisses the modal over the dropdown, not the dropdown under the modal), the stack benches (L5/L6) and the B21 stacked-composite gate | **done** |
 | **M19 — The clickable surface** | the pointer half of the floating dropdown, the M14×M15×M16×M17×M18 convergence: `SelectState::option_at` — the inverse of the windowed paint as a pure query next to `visible_window` (absolute option indexes wherever the window scrolled, `None` off the surface and below the painted window, total at every corner, stateless like the window it mirrors), the `layers` example completing M18's one-sequence promise — the same `order()` walk paints and registers the hit map, the `MouseMap` routes the clicks and `option_at` feeds the commit path (`choose`); the pointer bench and the B22 click-decision gate | **done** |
+| **M20 — The animated indicator** | the M13×M3 convergence, the DX gap
+the ecosystem leaves to third-party crates: `Spinner` + `SpinnerState` —
+the frame index is a pure function of elapsed time (`elapsed / period`
+modulo the glyph count; a 60 fps loop and a 5 fps one land on the same
+glyph), the paused clock freezes the frame in place (`advance` is a
+no-op while stopped, the clock saturates at `Duration::MAX`), five
+curated single-width glyph sets (`dots`/`line`/`arc`/`toggle`/`bounce`)
+plus app-supplied sets (an empty set renders the label only), a zero
+period pins frame 0, first-row discipline with block wrap and label
+clipping, theme mapping through the existing `accent` (running) and
+`muted` (stopped) slots, stateful through the `RenderWidget` contract;
+the `spinner` example and the spinner paint benches | **done** |
 
 ## 12. Decision log
 
@@ -1422,3 +1460,35 @@ pub trait Backend {
   L5/L6 routing class, 200x under the 1 us event ceiling B17 draws.
   The repaint a commit may trigger is the B20/B21 composite, already
   measured; the pointer adds a rounding error to a rounding error.
+
+## 27. M20 decisions (2026-11)
+
+- **The clock is state, the glyphs are the widget — the M13 discipline
+  held one more layer.** M13 shipped the rule that animation values are
+  pure functions of elapsed time; M20 applies it to a widget:
+  `SpinnerState` accumulates elapsed time (saturating, never
+  tick-counted) and `Spinner::frame` derives the glyph index from it, so
+  a 60 fps loop, a 5 fps loop and one one-second hop land on the same
+  frame. The render rate never bends the animation, and the differential
+  test pins it.
+- **The paused clock freezes in place.** `advance` is a no-op while
+  stopped — elapsed time is running time — so a stopped spinner keeps
+  the frame the user saw instead of snapping to a rest glyph. `reset`
+  zeroes the clock and keeps the run state; the M13 one-boundary-rule
+  spirit, restated for a cyclic animation.
+- **Honest edges instead of silent ones.** A zero period pins frame 0
+  (the `Progress::of_elapsed` zero-duration rule), an empty custom set
+  renders the label alone (no glyph is not an invisible glyph), and a
+  saturating clock at `Duration::MAX` keeps indexing — the same
+  total-at-every-corner discipline the M16 geometry and the M19 queries
+  shipped.
+- **Theme slots, not new slots.** Running takes the `accent` slot,
+  stopped patches the `muted` slot over it — the M15 mapping discipline:
+  one style patch per state, no new theme surface, `NO_COLOR` honored
+  through the same presets.
+- **No new gate: the paint is the M15 envelope.** The spinner row paints
+  in ~1.1 us at 200 columns (criterion median, fresh buffer included) —
+  the checkbox/switch envelope B18 already measured; the frame decision
+  is integer division, not a new hot path. The benches exist
+  (`widgets/spinner_dots_running_200x1`, `widgets/spinner_dots_stopped_200x1`)
+  and compile in CI like every bench since M0.
