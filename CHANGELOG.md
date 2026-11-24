@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- M20 `Spinner` + `SpinnerState` — the animated indicator, the M13×M3 convergence: the frame index is a pure function of elapsed time (60 fps and 5 fps loops land on the same glyph), the paused clock freezes the frame in place, five curated single-width glyph sets plus app-supplied sets, theme mapping through the existing `accent`/`muted` slots, stateful through the `RenderWidget` contract; the facade/prelude export and the `spinner` example
 - M19 `SelectState::option_at` — the pointer half of the floating dropdown: the inverse of the windowed paint as a pure query next to `visible_window` (absolute option indexes wherever the window scrolled, `None` off the surface and below the painted window, total at every corner)
 - M19 the `layers` example completes M18's one-sequence promise — the same `order()` walk paints and registers the hit map; the `MouseMap` routes the clicks and `option_at` feeds the commit path (the trigger toggles, an option click commits, an outside click dismisses the top surface)
 - M18 `SurfaceStack` — the floating-surface routing as a type: push opens or raises, `close` removes stably, `close_top` is the Esc precedence, `order()` is the paint and hit-map registration order; the facade/prelude export and the `layers` example rewired to the managed stack
@@ -15,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - M17-C `Select::render_options` — the surface half of the dropdown: the visible option window painted into a placed, erased rect
 - M17 the `layers` example rewired to the real floating dropdown, and the `dropdown_rows` facade/prelude export
 ### Documentation
+- M20 architecture decisions, benchmark scorecard and readme (the status header now tracks M20; the stale M0-M18 status line, the six-crates sentence and the changelog compare links are repaired)
 - M19 architecture decisions, benchmark scorecard and readme (the status header now tracks M19; the stale M0-M4 subtitle is repaired)
 - M18 the layer-module stack decisions, benchmark scorecard and readme
 - M16 the layer module decisions, benchmark scorecard and readme
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Engineering
 - Enforce the pedantic gate workspace-wide: `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` exits 0 and `grep -rnE '#!?\[allow\('` finds nothing — 340+ pedantic violations fixed in code (`#[must_use]` on every builder, `# Errors`/`# Panics` sections on every fallible public fn, saturating `try_from` narrowing) and 17 enforced `#[expect]`s with reasons on the irreducible float-to-grid casts (the M13 saturating lerp contract, clamped color blends, gauge fills)
 ### Performance
+- M20 the spinner paint benches — the animated indicator under measurement (`spinner_dots_running_200x1` ~1.06 us and `spinner_dots_stopped_200x1` ~1.10 us at 200 columns, the M15 one-row family envelope)
 - M19 the pointer bench — the click decision under measurement (B22: hit-test through the registered surface map plus the inverse query on the 100-option windowed surface, ~5 ns against the 1 us event ceiling; the `option_at` query alone ~7.4 ns)
 - M18 the stack benches — the routing under measurement (B21: the dropdown + tooltip + modal stacked composite repaints in a median ~101 us at 200x60, ~7x under the gate; the routing decision itself ~3 ns per op)
 - M16 the layer benches — the placement decision under measurement (B19: a floating 16-option dropdown composites over a 200x60 dashboard in a median ~91 us, p99 ~122 us, ~8x under the 1 ms gate)
@@ -41,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M15 the form benches — the selection family under measurement (B18: the settings panel repaints in a median ~84 us at 200x60, ~8x under the gate)
 
-## [0.15.0](https://github.com/tuvix-rs/tuvix/compare/v0.14.0...v0.15.0) - 2026-11-06
+## [0.15.0](https://github.com/elcoosp/tuvix/compare/v0.14.0...v0.15.0) - 2026-11-06
 ### Added
 - M14-A the hit map — the click surface resolved by the painter's algorithm
 - M14-B the gesture recognizer — clicks, drags and scrolls on an injected clock
@@ -52,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M14 the mouse benches — the pointer layer under measurement (B17: 765 ns per decision)
 
-## [0.14.0](https://github.com/tuvix-rs/tuvix/compare/v0.13.0...v0.14.0) - 2026-11-05
+## [0.14.0](https://github.com/elcoosp/tuvix/compare/v0.13.0...v0.14.0) - 2026-11-05
 ### Added
 - M13 the motion layer — the clock owns the value
 - M13 prelude wiring and the animation example
@@ -61,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M13 the motion benches — the fleet under measurement
 
-## [0.13.0](https://github.com/tuvix-rs/tuvix/compare/v0.12.0...v0.13.0) - 2026-11-05
+## [0.13.0](https://github.com/elcoosp/tuvix/compare/v0.12.0...v0.13.0) - 2026-11-05
 ### Added
 - M12-A the mutation packet — a flat, versioned binary protocol for buffer mutations
 - M12-B the applier and the frame snapshot — packets apply, buffers read back
@@ -74,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M12 the embed benches — the boundary under measurement
 
-## [0.12.0](https://github.com/tuvix-rs/tuvix/compare/v0.11.0...v0.12.0) - 2026-11-05
+## [0.12.0](https://github.com/elcoosp/tuvix/compare/v0.11.0...v0.12.0) - 2026-11-05
 ### Added
 - M11-A Scrollable — a viewport over larger content
 - M11-B FocusRing — focus routing over the app's own panes
@@ -85,7 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M11 gates — B14 the viewport scroll step, the interaction benches
 
-## [0.11.0](https://github.com/tuvix-rs/tuvix/compare/v0.10.0...v0.11.0) - 2026-11-05
+## [0.11.0](https://github.com/elcoosp/tuvix/compare/v0.10.0...v0.11.0) - 2026-11-05
 ### Added
 - M10-A TextArea — a multi-line editor with exact undo/redo
 - M10-B SessionReplay — replay recorded sessions through a deterministic app
@@ -97,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M10 gates — B12 replay golden loop, B13 the memory budget closed
 
-## [0.10.0](https://github.com/tuvix-rs/tuvix/compare/v0.9.0...v0.10.0) - 2026-11-05
+## [0.10.0](https://github.com/elcoosp/tuvix/compare/v0.9.0...v0.10.0) - 2026-11-05
 ### Added
 - M9-A session recorder — a time-travel timeline of frames and input events
 - M9-B Screen — parse canonical ANSI snapshots back into cells
@@ -109,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M9 devtools benches and the B11 scrub-latency gate
 
-## [0.9.0](https://github.com/tuvix-rs/tuvix/compare/v0.8.0...v0.9.0) - 2026-11-05
+## [0.9.0](https://github.com/elcoosp/tuvix/compare/v0.8.0...v0.9.0) - 2026-11-05
 ### Added
 - M8-A cancellation tokens with parent-child propagation
 - M8-B cancellable frames — abandoned renders are discarded, not committed
@@ -126,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M8 scheduler benches and the B10 input-to-paint gate
 
-## [0.8.0](https://github.com/tuvix-rs/tuvix/compare/v0.7.0...v0.8.0) - 2026-11-05
+## [0.8.0](https://github.com/elcoosp/tuvix/compare/v0.7.0...v0.8.0) - 2026-11-05
 ### Added
 - M7-C inline markup parser with strict errors and span!/line!/text! macros
 - M7-A BarChart — grouped vertical bars with values and labels
@@ -146,7 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 - Correct the centered odd-remainder expectation
 
-## [0.7.0](https://github.com/tuvix-rs/tuvix/compare/v0.6.0...v0.7.0) - 2026-11-05
+## [0.7.0](https://github.com/elcoosp/tuvix/compare/v0.6.0...v0.7.0) - 2026-11-05
 ### Added
 - M6 Flex layout — placement pass for the leftover budget
 - M6 Rect::centered — clamped popup geometry helper
@@ -163,7 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - M6 flex placement and new widget paint benches
 
-## [0.6.0](https://github.com/tuvix-rs/tuvix/compare/v0.5.0...v0.6.0) - 2026-11-05
+## [0.6.0](https://github.com/elcoosp/tuvix/compare/v0.5.0...v0.6.0) - 2026-11-05
 ### Added
 - M5 hyperlinks — OSC 8 cell attributes through diff, renderers and previews
 - M5 terminal-weighted layout — Constraint::Weight
@@ -175,7 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 - Satisfy pedantic clippy on the hyperlink pass
 
-## [0.5.0](https://github.com/tuvix-rs/tuvix/compare/v0.4.0...v0.5.0) - 2026-11-04
+## [0.5.0](https://github.com/elcoosp/tuvix/compare/v0.4.0...v0.5.0) - 2026-11-04
 ### Added
 - M4 persistent-DOM frame journal with the O(1) no-op decision
 - M4 theme system — named slots, presets, NO_COLOR and widget mapping
@@ -188,7 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Miscellaneous
 - Drop the stale v0.4.0 copy embedded in the delivered archive
 
-## [0.4.0](https://github.com/tuvix-rs/tuvix/compare/v0.3.0...v0.4.0) - 2026-11-04
+## [0.4.0](https://github.com/elcoosp/tuvix/compare/v0.3.0...v0.4.0) - 2026-11-04
 ### Added
 - **breaking:** Unify stateful authoring behind a RenderWidget contract
 - **breaking:** Scroll is configuration for text, state for lists
@@ -201,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 - M3 integration gate - dashboard, contract, navigation
 
-## [0.3.0](https://github.com/tuvix-rs/tuvix/compare/v0.2.0...v0.3.0) - 2026-11-04
+## [0.3.0](https://github.com/elcoosp/tuvix/compare/v0.2.0...v0.3.0) - 2026-11-04
 ### Added
 - M2 runtime — input stack, async event stream, panic restore, app runner
 - Raw control sequences and background event reader
@@ -217,7 +220,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 - M2 runtime integration gate
 
-## [0.2.0](https://github.com/tuvix-rs/tuvix/compare/v0.1.0...v0.2.0) - 2026-11-04
+## [0.2.0](https://github.com/elcoosp/tuvix/compare/v0.1.0...v0.2.0) - 2026-11-04
 ### Added
 - **breaking:** M1 batch A — compact Symbol, zero-copy spans, damage tracker, widget traits, layout cache
 - **breaking:** M1 batch B — word wrap, scroll state, widget traits, raster-state ANSI with EL elision
