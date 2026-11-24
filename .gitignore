@@ -10,3 +10,5 @@ Cargo.lock.bak
 ship.sh
 # local PR description for the shipping script (never ships)
 .github/pr-body.md
+# local ship manifest (never ships)
+ship.toml
