@@ -277,9 +277,9 @@ pub use tuvix_widgets::{
     Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Checkbox, Clear,
     Dataset, FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem,
     ListState, Marker, Overlay, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
-    ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Switch, Table, TableCell,
-    TableRow, TableState, Tabs, TextArea, TextAreaState, Tree, TreeItem, TreeState, ViewportState,
-    Wrap, wrap_line,
+    ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Spinner, SpinnerState,
+    Switch, Table, TableCell, TableRow, TableState, Tabs, TextArea, TextAreaState, Tree, TreeItem,
+    TreeState, ViewportState, Wrap, wrap_line,
 };
 
 pub mod runtime;
@@ -343,8 +343,8 @@ pub mod prelude {
         Axis, Bar, BarChart, BarGroup, Block, BorderType, Borders, Canvas, Chart, Checkbox, Clear,
         Dataset, FrameInspector, Gauge, GraphType, Input, InputState, LineGauge, List, ListItem,
         ListState, Marker, Overlay, Paragraph, RadioGroup, ScrollState, Scrollable, Scrollbar,
-        ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Switch, Table,
-        TableCell, TableRow, TableState, Tabs, TextArea, TextAreaState, Tree, TreeItem, TreeState,
-        ViewportState, Wrap, wrap_line,
+        ScrollbarOrientation, ScrollbarState, Select, SelectState, Sparkline, Spinner,
+        SpinnerState, Switch, Table, TableCell, TableRow, TableState, Tabs, TextArea,
+        TextAreaState, Tree, TreeItem, TreeState, ViewportState, Wrap, wrap_line,
     };
 }
