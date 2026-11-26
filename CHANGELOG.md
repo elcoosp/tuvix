@@ -15,12 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - M17-B `SelectState::visible_window` — the pure scroll window that keeps the highlight visible at any surface height (navigation never points at a clipped option)
 - M17-C `Select::render_options` — the surface half of the dropdown: the visible option window painted into a placed, erased rect
 - M17 the `layers` example rewired to the real floating dropdown, and the `dropdown_rows` facade/prelude export
+- M16-A `place` + `Placement` — the flip-then-clamp floating-surface geometry a popup needs (preferred side, mirror side, nearest host edge; total at every `u16` corner)
+- M16-B `Overlay` — the erase-then-paint compositor over the buffer's pair-repairing clear; z-order is paint order
+- M16 the `layers` example — a floating dropdown and a modal over a dashboard
+- M15-A Checkbox — a single-row boolean control with a state-bearing marker glyph
+- M15-B RadioGroup — an exclusive-choice list with one highlight
+- M15-C Switch — a knob-in-a-track on/off control
+- M15-D Select + SelectState — a dropdown whose open/highlight/commit state is a plain data structure
+- M15 prelude wiring, the facade doctest and the `forms` example
 ### Documentation
 - M20 architecture decisions, benchmark scorecard and readme (the status header now tracks M20; the stale M0-M18 status line, the six-crates sentence and the changelog compare links are repaired)
 - M19 architecture decisions, benchmark scorecard and readme (the status header now tracks M19; the stale M0-M4 subtitle is repaired)
 - M18 the layer-module stack decisions, benchmark scorecard and readme
-- M16 the layer module decisions, benchmark scorecard and readme
 - M17 architecture decisions, benchmark scorecard and readme (the status header now tracks M17)
+- M16 the layer module decisions, benchmark scorecard and readme
+- M15 architecture decisions, benchmark scorecard and readme
 ### Fixed
 - Repair the counting allocator's shrinking `realloc` accounting — a shrink credited the released bytes back as live ones (`unsigned_abs` fetch_add), inflating the B13 live-bytes measurement on any shrinking realloc
 - Point the workspace `repository` field and the git-cliff compare links at the real repository (`elcoosp/tuvix`)
@@ -34,14 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - M19 the pointer bench — the click decision under measurement (B22: hit-test through the registered surface map plus the inverse query on the 100-option windowed surface, ~5 ns against the 1 us event ceiling; the `option_at` query alone ~7.4 ns)
 - M18 the stack benches — the routing under measurement (B21: the dropdown + tooltip + modal stacked composite repaints in a median ~101 us at 200x60, ~7x under the gate; the routing decision itself ~3 ns per op)
 - M16 the layer benches — the placement decision under measurement (B19: a floating 16-option dropdown composites over a 200x60 dashboard in a median ~91 us, p99 ~122 us, ~8x under the 1 ms gate)
-- M15-A Checkbox — a single-row boolean control with a state-bearing marker glyph
-- M15-B RadioGroup — an exclusive-choice list with one highlight
-- M15-C Switch — a knob-in-a-track on/off control
-- M15-D Select + SelectState — a dropdown whose open/highlight/commit state is a plain data structure
-- M15 prelude wiring, the facade doctest and the `forms` example
-### Documentation
-- M15 architecture decisions, benchmark scorecard and readme
-### Performance
 - M15 the form benches — the selection family under measurement (B18: the settings panel repaints in a median ~84 us at 200x60, ~8x under the gate)
 
 ## [0.15.0](https://github.com/elcoosp/tuvix/compare/v0.14.0...v0.15.0) - 2026-11-06
