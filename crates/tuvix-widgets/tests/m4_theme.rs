@@ -6,12 +6,13 @@ use tuvix_core::buffer::Buffer;
 use tuvix_core::geometry::{Rect, Size};
 use tuvix_core::style::{Color, Modifier, Style};
 use tuvix_core::terminal::Terminal;
+use tuvix_core::text::Span;
 use tuvix_core::theme::Theme;
 use tuvix_core::widget::{RenderWidget, Widget};
 use tuvix_widgets::{
-    Block, BorderType, Borders, Chart, Dataset, Gauge, GraphType, List, ListItem, ListState,
-    Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline, Table, TableCell,
-    TableRow, TableState,
+    Block, BorderType, Borders, Canvas, Chart, Dataset, Gauge, GraphType, List, ListItem,
+    ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline, Table,
+    TableCell, TableRow, TableState,
 };
 
 fn cell_style(buffer: &Buffer, x: u16, y: u16) -> Style {
@@ -170,4 +171,66 @@ fn theme_changes_propagate_through_the_terminal() {
         terminal.backend().buffer().get(0, 0).unwrap().style,
         theme.gauge
     );
+}
+
+// The plan contract these tests pin (docs/ARCHITECTURE.md §3, workspace
+// layout): "M4: `.theme(&Theme)` mapping on every family" — restated by
+// §16's theme decisions: "Widgets map slots through one `.theme(&Theme)`
+// method each". Canvas was the one widget family the theme system never
+// reached; these tests fail until it maps the `text` slot the way every
+// other family does.
+
+#[test]
+fn canvas_theme_maps_the_text_slot_under_label_spans() {
+    let theme = Theme::dark();
+    let canvas = Canvas::new()
+        .x_bounds([0.0, 2.0])
+        .y_bounds([0.0, 2.0])
+        .paint(|ctx| {
+            // A default-styled span carries no style of its own, so the
+            // label inherits the theme's text slot.
+            ctx.print(0.0, 0.0, [Span::raw("peak")]);
+        })
+        .theme(&theme);
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 10, 3));
+    canvas.render(Rect::new(0, 0, 10, 3), &mut buffer);
+    // The anchor (0.0, 0.0) lands in the bottom-left cell: y grows upward
+    // in canvas space, the grid does not.
+    assert_eq!(cell_style(&buffer, 0, 2).fg, theme.text.fg);
+}
+
+#[test]
+fn canvas_theme_leaves_app_span_styles_in_charge() {
+    let theme = Theme::dark();
+    let canvas = Canvas::new()
+        .x_bounds([0.0, 2.0])
+        .y_bounds([0.0, 2.0])
+        .paint(|ctx| {
+            ctx.print(
+                0.0,
+                0.0,
+                [Span::styled("peak", Style::new().fg(Color::Red))],
+            );
+        })
+        .theme(&theme);
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 10, 3));
+    canvas.render(Rect::new(0, 0, 10, 3), &mut buffer);
+    // The app's own span style wins over the themed base — the Chart
+    // label-patching rule (`base.patch(span.style)`).
+    assert_eq!(cell_style(&buffer, 0, 2).fg, Some(Color::Red));
+}
+
+#[test]
+fn canvas_without_theme_renders_labels_default_styled() {
+    let canvas = Canvas::new()
+        .x_bounds([0.0, 2.0])
+        .y_bounds([0.0, 2.0])
+        .paint(|ctx| {
+            ctx.print(0.0, 0.0, [Span::raw("peak")]);
+        });
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 10, 3));
+    canvas.render(Rect::new(0, 0, 10, 3), &mut buffer);
+    // No theme, no patch: the pre-theme rendering contract is unchanged
+    // (byte-identical output for every app that never calls `.theme`).
+    assert_eq!(cell_style(&buffer, 0, 2), Style::default());
 }
