@@ -11,6 +11,7 @@ use tuvix_core::geometry::Rect;
 use tuvix_core::style::Color;
 use tuvix_core::style::Style;
 use tuvix_core::text::Span;
+use tuvix_core::theme::Theme;
 use tuvix_core::widget::Widget;
 
 use crate::block::Block;
@@ -315,6 +316,7 @@ pub struct Canvas {
     x_bounds: [f64; 2],
     y_bounds: [f64; 2],
     paint: std::sync::Arc<dyn Fn(&mut Context)>,
+    style: Style,
 }
 
 impl std::fmt::Debug for Canvas {
@@ -323,6 +325,7 @@ impl std::fmt::Debug for Canvas {
             .field("marker", &self.marker)
             .field("x_bounds", &self.x_bounds)
             .field("y_bounds", &self.y_bounds)
+            .field("style", &self.style)
             .finish_non_exhaustive()
     }
 }
@@ -338,6 +341,7 @@ impl Canvas {
             x_bounds: [0.0, 0.0],
             y_bounds: [0.0, 0.0],
             paint: std::sync::Arc::new(|_| {}),
+            style: Style::default(),
         }
     }
 
@@ -376,6 +380,44 @@ impl Canvas {
         F: Fn(&mut Context) + 'static,
     {
         self.paint = std::sync::Arc::new(paint);
+        self
+    }
+
+    /// Maps the theme onto the canvas: the `text` slot becomes the label
+    /// base style, patched under every label span the way the chart's
+    /// axis labels are themed (`base.patch(span.style)`), so app-styled
+    /// spans keep charge of their own emphasis. Shape colors are the
+    /// plotted data and stay app-owned, like chart dataset colors.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tuvix_core::buffer::Buffer;
+    /// use tuvix_core::geometry::Rect;
+    /// use tuvix_core::text::Span;
+    /// use tuvix_core::theme::Theme;
+    /// use tuvix_core::widget::Widget;
+    /// use tuvix_widgets::canvas::Canvas;
+    ///
+    /// let canvas = Canvas::new()
+    ///     .x_bounds([0.0, 2.0])
+    ///     .y_bounds([0.0, 2.0])
+    ///     .paint(|ctx| {
+    ///         ctx.print(0.0, 0.0, [Span::raw("peak")]);
+    ///     })
+    ///     .theme(&Theme::dark());
+    ///
+    /// let mut buffer = Buffer::empty(Rect::new(0, 0, 10, 3));
+    /// canvas.render(Rect::new(0, 0, 10, 3), &mut buffer);
+    /// // The default-styled label inherits the text slot.
+    /// assert_eq!(
+    ///     buffer.get(0, 2).unwrap().style.fg,
+    ///     Theme::dark().text.fg
+    /// );
+    /// ```
+    #[must_use]
+    pub fn theme(mut self, theme: &Theme) -> Self {
+        self.style = theme.text;
         self
     }
 
@@ -418,7 +460,6 @@ impl Canvas {
 
         // Rasterize the dot grid into cells.
         let cells_w = usize::from(canvas_area.width);
-        let dots_per_cell = if self.marker == Marker::Braille { 8 } else { 1 };
         for cell_index in 0..cells_w * usize::from(canvas_area.height) {
             let bits = context.dirty[cell_index];
             let symbol = if self.marker == Marker::Braille {
@@ -443,7 +484,6 @@ impl Canvas {
                     .set_style(Style::new().fg(context.colors[cell_index]));
             }
         }
-        let _ = dots_per_cell;
 
         // Labels layer on top of the grid.
         for layer in &context.layers {
@@ -473,12 +513,15 @@ impl Canvas {
                 if cursor >= canvas_area.right() {
                     break;
                 }
+                // The themed base patches under the app's span style —
+                // the same rule the chart's axis labels follow.
+                let style = self.style.patch(span.style);
                 let (end_x, _) = buffer.set_stringn(
                     cursor,
                     y,
                     span.content.as_ref(),
                     canvas_area.right() - cursor,
-                    span.style,
+                    style,
                 );
                 cursor = end_x;
             }
@@ -646,6 +689,38 @@ mod tests {
                 .iter()
                 .all(tuvix_core::buffer::Cell::is_empty)
         );
+    }
+
+    #[test]
+    fn theme_patches_the_text_slot_under_label_spans() {
+        let theme = tuvix_core::theme::Theme::dark();
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 8, 2));
+        Canvas::new()
+            .x_bounds([0.0, 1.0])
+            .y_bounds([0.0, 1.0])
+            .paint(|ctx| {
+                ctx.print(0.0, 0.0, [Span::raw("hi")]);
+            })
+            .theme(&theme)
+            .render(Rect::new(0, 0, 8, 2), &mut buffer);
+        // The default-styled label inherits the text slot.
+        assert_eq!(buffer.get(0, 1).unwrap().style.fg, theme.text.fg);
+    }
+
+    #[test]
+    fn app_span_styles_win_over_the_themed_base() {
+        let theme = tuvix_core::theme::Theme::dark();
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 8, 2));
+        Canvas::new()
+            .x_bounds([0.0, 1.0])
+            .y_bounds([0.0, 1.0])
+            .paint(|ctx| {
+                ctx.print(0.0, 0.0, [Span::styled("hi", Style::new().fg(Color::Red))]);
+            })
+            .theme(&theme)
+            .render(Rect::new(0, 0, 8, 2), &mut buffer);
+        // The app's own style patches over the theme base.
+        assert_eq!(buffer.get(0, 1).unwrap().style.fg, Some(Color::Red));
     }
 
     #[test]
