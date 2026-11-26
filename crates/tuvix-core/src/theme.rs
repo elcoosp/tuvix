@@ -341,9 +341,19 @@ mod tests {
         let theme = Theme::light();
         assert_eq!(theme.text.fg, Some(Color::Black));
         assert_eq!(theme.muted.fg, Some(Color::Gray));
+        assert_eq!(theme.border.fg, Some(Color::Gray));
+        assert_eq!(theme.title.fg, Some(Color::Black));
+        assert_eq!(theme.title.add_modifier, Modifier::BOLD);
         assert_eq!(theme.highlight.bg, Some(Color::Gray));
-        assert_eq!(theme.accent.fg, Some(Color::Blue));
+        assert_eq!(theme.highlight.fg, Some(Color::Black));
+        assert_eq!(theme.gauge.fg, Some(Color::Green));
+        assert_eq!(theme.sparkline.fg, Some(Color::Blue));
+        assert_eq!(theme.axis.fg, Some(Color::Gray));
+        assert_eq!(theme.scrollbar.fg, Some(Color::Gray));
+        assert_eq!(theme.success.fg, Some(Color::Green));
+        assert_eq!(theme.warning.fg, Some(Color::Yellow));
         assert_eq!(theme.error.fg, Some(Color::Red));
+        assert_eq!(theme.accent.fg, Some(Color::Blue));
     }
 
     #[test]
