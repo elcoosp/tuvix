@@ -688,7 +688,12 @@ impl RecordingSink {
 
 impl FrameSink for RecordingSink {
     fn on_frame(&mut self, ansi: &str) {
-        self.frames.lock().unwrap().push(ansi.to_string());
+        // Recover from a poisoned mutex (a panicking reader must not take
+        // the recording down) — the HistorySink::lock discipline.
+        self.frames
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(ansi.to_string());
     }
 }
 
