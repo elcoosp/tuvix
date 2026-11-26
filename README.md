@@ -111,6 +111,7 @@ Every example under [`crates/tuvix/examples/`](crates/tuvix/examples/) is a comp
 ```bash
 cargo run -p tuvix --example hello           # the runtime loop, input stack included
 cargo run -p tuvix --example widgets         # gauge, sparkline, chart, list and table, live
+cargo run -p tuvix --example canvas          # the themed braille canvas with live labels
 cargo run -p tuvix --example inputs          # tabs, a text field and a popup
 cargo run -p tuvix --example data_view       # bar chart, tree and the markup parser
 cargo run -p tuvix --example interaction     # scrollable viewport, focus ring, keymap chords
@@ -142,4 +143,4 @@ The design document — principles, pipeline, layout solver, event model, testin
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the full design: principles, rendering pipeline, backend contract, decision log
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) — criterion baselines and the timing gates enforced on a weekly CI schedule
 - [`docs/PLATFORMS.md`](docs/PLATFORMS.md) — the platform support matrix
-- [`crates/tuvix/examples/`](crates/tuvix/examples/) — seventeen runnable apps, from the hello loop to the embedding boundary
+- [`crates/tuvix/examples/`](crates/tuvix/examples/) — eighteen runnable apps, from the hello loop to the embedding boundary
