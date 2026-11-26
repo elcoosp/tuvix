@@ -155,6 +155,30 @@ fn bench_widgets_data(c: &mut Criterion) {
         });
     });
 
+    // The themed canvas: the label base patches under the app spans, so
+    // the theme adds one style patch per label span on top of the unthemed
+    // paint (the mapping the M4 "every family" contract completed).
+    group.bench_function("canvas_braille_themed_200x60", |b| {
+        let canvas = tuvix_widgets::canvas::Canvas::new()
+            .x_bounds([0.0, 1.0])
+            .y_bounds([0.0, 1.0])
+            .paint(|ctx| {
+                ctx.draw(&tuvix_widgets::canvas::Line::new(
+                    0.0,
+                    0.0,
+                    1.0,
+                    1.0,
+                    Color::Red,
+                ));
+                ctx.print(0.5, 0.9, [tuvix_core::text::Span::raw("themed label")]);
+            })
+            .theme(&tuvix_core::theme::Theme::dark());
+        b.iter(|| {
+            let mut buffer = Buffer::empty(area);
+            Widget::render(black_box(canvas.clone()), black_box(area), &mut buffer);
+        });
+    });
+
     group.bench_function("scrollbar_200x60", |b| {
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
         let mut state = ScrollbarState::new(1_000)
