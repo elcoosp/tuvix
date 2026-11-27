@@ -361,6 +361,25 @@ impl<'a> Iterator for DiffRuns<'a> {
                 Some(bands) => bands[self.band_index].end.min(width),
                 None => width,
             };
+            // Row-equality fast path: when the whole remaining scan
+            // domain on this row is identical, no run can start here.
+            // This is exactly equivalent to the per-cell walk below:
+            // equal cells never emit (the wide-glyph pair rule only
+            // fires when the previous cell differs from the next one).
+            if (self.col as usize) < scan_end as usize {
+                let row_offset = self.row as usize * width as usize;
+                let start = row_offset + self.col as usize;
+                let end = row_offset + scan_end as usize;
+                if self.previous.content[start..end] == self.next.content[start..end] {
+                    if self.bands.is_some() {
+                        self.band_index += 1;
+                    } else {
+                        self.row += 1;
+                        self.col = 0;
+                    }
+                    continue;
+                }
+            }
             // Skip unchanged leading cells (within the scan domain).
             while self.col < scan_end && !self.should_emit(self.row, self.col) {
                 self.col += 1;
