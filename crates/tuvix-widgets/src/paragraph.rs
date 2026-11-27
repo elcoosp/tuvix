@@ -83,8 +83,11 @@ pub fn wrap_line(line: &Line, max_width: u16, trim: bool) -> Vec<Line> {
     let mut wrapper = Wrapper::new(line, max_width);
 
     // Token scanner: leading space run, then the word after it.
-    let mut pending_sep: Vec<(String, Style)> = Vec::new();
-    let mut pending_word: Vec<(String, Style)> = Vec::new();
+    // Graphemes are borrowed from the source line (no per-grapheme
+    // allocation): owned strings are only materialized when a display
+    // line is emitted, one allocation per output span.
+    let mut pending_sep: Vec<(&str, Style)> = Vec::new();
+    let mut pending_word: Vec<(&str, Style)> = Vec::new();
     for span in &line.spans {
         for grapheme in span.content.graphemes(true) {
             if grapheme == " " {
@@ -93,9 +96,9 @@ pub fn wrap_line(line: &Line, max_width: u16, trim: bool) -> Vec<Line> {
                     let sep = core::mem::take(&mut pending_sep);
                     wrapper.place_word(sep, word, trim);
                 }
-                pending_sep.push((grapheme.to_string(), span.style));
+                pending_sep.push((grapheme, span.style));
             } else {
-                pending_word.push((grapheme.to_string(), span.style));
+                pending_word.push((grapheme, span.style));
             }
         }
     }
@@ -106,12 +109,44 @@ pub fn wrap_line(line: &Line, max_width: u16, trim: bool) -> Vec<Line> {
     wrapper.finish()
 }
 
+/// Fast path for [`wrap_line`]: a line that fits on one display row
+/// is returned as-is instead of going through the wrapper. Only safe
+/// when the wrapper would emit exactly this line: the line must contain
+/// a non-space grapheme (all-spaces lines wrap to zero display lines),
+/// must not start with a space when trimming (the wrapper drops the
+/// leading run), and must not end with a space (the wrapper drops the
+/// trailing separator). Anything else falls through to [`wrap_line`].
+fn wrap_line_or_as_is(line: &Line, max_width: u16, trim: bool) -> Vec<Line> {
+    if line.width() <= max_width {
+        let mut first = true;
+        let mut first_is_space = false;
+        let mut last_is_space = false;
+        let mut has_non_space = false;
+        for span in &line.spans {
+            for c in span.content.chars() {
+                if first {
+                    first_is_space = c == ' ';
+                    first = false;
+                }
+                last_is_space = c == ' ';
+                if c != ' ' {
+                    has_non_space = true;
+                }
+            }
+        }
+        if has_non_space && !last_is_space && !(trim && first_is_space) {
+            return vec![line.clone()];
+        }
+    }
+    wrap_line(line, max_width, trim)
+}
+
 /// Greedy line-builder state for [`wrap_line`].
 struct Wrapper<'a> {
     line: &'a Line,
     max_width: u16,
     result: Vec<Line>,
-    current: Vec<(String, Style)>,
+    current: Vec<(&'a str, Style)>,
     current_width: u16,
 }
 
@@ -126,7 +161,7 @@ impl<'a> Wrapper<'a> {
         }
     }
 
-    fn width_of(glyphs: &[(String, Style)]) -> u16 {
+    fn width_of(glyphs: &[(&str, Style)]) -> u16 {
         glyphs
             .iter()
             .map(|(g, _)| u16::try_from(g.width()).unwrap_or(u16::MAX))
@@ -134,14 +169,14 @@ impl<'a> Wrapper<'a> {
     }
 
     /// Groups consecutive same-style glyphs into spans and pushes a line.
-    fn emit(&mut self, glyphs: &[(String, Style)]) {
+    fn emit(&mut self, glyphs: &[(&str, Style)]) {
         let mut spans: Vec<Span> = Vec::new();
-        for (glyph, style) in glyphs {
+        for &(glyph, style) in glyphs {
             match spans.last_mut() {
-                Some(span) if span.style == *style => span.content.to_mut().push_str(glyph),
+                Some(span) if span.style == style => span.content.to_mut().push_str(glyph),
                 _ => spans.push(Span {
-                    content: std::borrow::Cow::Owned(glyph.clone()),
-                    style: *style,
+                    content: std::borrow::Cow::Owned(glyph.to_owned()),
+                    style,
                 }),
             }
         }
@@ -154,8 +189,8 @@ impl<'a> Wrapper<'a> {
 
     /// Hard-breaks `glyphs` into full lines, returning the trailing partial
     /// line content for the current line.
-    fn hard_break(&mut self, glyphs: Vec<(String, Style)>) -> Vec<(String, Style)> {
-        let mut rest: Vec<(String, Style)> = Vec::new();
+    fn hard_break(&mut self, glyphs: Vec<(&'a str, Style)>) -> Vec<(&'a str, Style)> {
+        let mut rest: Vec<(&'a str, Style)> = Vec::new();
         let mut rest_width = 0_u16;
         for (glyph, style) in glyphs {
             let width = u16::try_from(glyph.width()).unwrap_or(u16::MAX);
@@ -171,14 +206,14 @@ impl<'a> Wrapper<'a> {
     }
 
     /// Places one word (with its leading separator) onto the lines.
-    fn place_word(&mut self, sep: Vec<(String, Style)>, word: Vec<(String, Style)>, trim: bool) {
+    fn place_word(&mut self, sep: Vec<(&'a str, Style)>, word: Vec<(&'a str, Style)>, trim: bool) {
         let word_width = Self::width_of(&word);
         let sep_width = Self::width_of(&sep);
 
         if self.current.is_empty() {
             // Line start: preserve the separator unless trimming.
             if !trim && !sep.is_empty() {
-                let stream: Vec<(String, Style)> = sep.into_iter().chain(word).collect();
+                let stream: Vec<(&'a str, Style)> = sep.into_iter().chain(word).collect();
                 if Self::width_of(&stream) <= self.max_width {
                     self.current_width = Self::width_of(&stream);
                     self.current = stream;
@@ -311,7 +346,7 @@ impl Paragraph {
                 .text
                 .lines
                 .iter()
-                .flat_map(|line| wrap_line(line, area.width, wrap.trim))
+                .flat_map(|line| wrap_line_or_as_is(line, area.width, wrap.trim))
                 .collect(),
         };
 
@@ -323,13 +358,19 @@ impl Paragraph {
                 break;
             }
             let alignment = line.alignment.or(self.alignment).unwrap_or_default();
-            let line_width = line.width();
+            // The line width is only needed for centered/right-aligned
+            // lines; computing it for every left-aligned line costs a
+            // full grapheme pass per display line per frame.
             let x = match alignment {
                 Alignment::Left => area.x,
                 Alignment::Center => {
+                    let line_width = line.width();
                     area.x + area.width.saturating_sub(line_width.min(area.width)) / 2
                 }
-                Alignment::Right => area.x + area.width.saturating_sub(line_width.min(area.width)),
+                Alignment::Right => {
+                    let line_width = line.width();
+                    area.x + area.width.saturating_sub(line_width.min(area.width))
+                }
             };
             let max_width = area.right().saturating_sub(x);
             let line_style = self.style.patch(line.style);
