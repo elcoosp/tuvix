@@ -80,6 +80,52 @@ fn rollback_partially_initialized() {
     let _ = disable_raw_mode();
 }
 
+/// Like [`try_init`] but the terminal keeps a persistent DOM across
+/// frames: [`Terminal::draw_persistent`](tuvix_core::terminal::Terminal::draw_persistent)
+/// and `draw_persistent_cancellable` only repaint the regions the
+/// frame actually touched, and a frame that paints nothing costs
+/// ~nothing. Apps that skip unchanged regions must paint every region
+/// they own at least once (the DOM starts blank) and must repaint a
+/// region after anything that could have disturbed it (resize, overlay
+/// close, a cancelled frame).
+///
+/// # Errors
+///
+/// Fails when raw mode, the alternate screen or the terminal size cannot be
+/// set up; whatever was enabled is rolled back before the error returns.
+pub fn try_init_persistent() -> io::Result<DefaultRunner> {
+    install_panic_restore();
+    enable_raw_mode()?;
+    match init_persistent_with_raw_mode() {
+        Ok(runner) => Ok(runner),
+        Err(error) => {
+            // Roll back what was enabled so a failed init never leaves the
+            // terminal in a half-touched state.
+            rollback_partially_initialized();
+            Err(error)
+        }
+    }
+}
+
+/// Like [`try_init_persistent`] but panics with a descriptive message on failure.
+///
+/// # Panics
+///
+/// Panics when raw mode or the alternate screen cannot be set up.
+#[must_use]
+pub fn init_persistent() -> DefaultRunner {
+    try_init_persistent().expect("failed to initialize the terminal")
+}
+
+/// The half of `try_init_persistent` that runs once raw mode is on:
+/// alternate screen, then the runner over a persistent-DOM terminal.
+fn init_persistent_with_raw_mode() -> io::Result<DefaultRunner> {
+    execute!(stdout(), EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout());
+    let terminal = Terminal::new_persistent(backend)?;
+    Ok(AppRunner::new(terminal))
+}
+
 /// Like [`try_init`] but panics with a descriptive message on failure.
 ///
 /// # Panics
