@@ -4,7 +4,7 @@
 
 use core::convert::Infallible;
 
-use crate::buffer::{Buffer, DiffRun};
+use crate::buffer::{Buffer, Cell, DiffRun};
 use crate::clipboard::ClipboardSelection;
 use crate::geometry::{Position, Rect, Size};
 
@@ -217,35 +217,61 @@ impl Backend for TestBackend {
         &mut self,
         content: impl IntoIterator<Item = DiffRun<'a>>,
     ) -> Result<(), Self::Error> {
+        // TestBackend buffers are always origin (0, 0) (`Rect::from_size`
+        // in `new`/`resize`), so a row's cells are a flat slice at
+        // `row * width`.
+        let width = usize::from(self.buffer.area.width);
+        let height = usize::from(self.buffer.area.height);
         for run in content {
-            for (index, cell) in run.cells.iter().enumerate() {
-                let x = run.start + u16::try_from(index).unwrap_or(u16::MAX);
-                // Emulate real terminal behavior: overwriting either half of
-                // a wide glyph clears the whole pair, even when the neighbor
-                // cell is not part of this diff batch.
-                if let Some(previous) = self.buffer.get(x, run.row) {
-                    if previous.is_wide() {
-                        self.buffer
-                            .clear_with_pair_repair(x.saturating_add(1), run.row);
-                    } else if previous.skip
-                        && let Some(previous) = x.checked_sub(1)
-                    {
-                        self.buffer.clear_with_pair_repair(previous, run.row);
+            let row = usize::from(run.row);
+            if row >= height {
+                continue;
+            }
+            let start = usize::from(run.start);
+            if start >= width {
+                continue;
+            }
+            let len = run.cells.len().min(width - start);
+            let base = row * width + start;
+            let source = &run.cells[..len];
+            // Fast path: no wide/skip cell on either side means the
+            // per-cell pair repair can never fire, so the run copies as
+            // one slice — what a real ANSI backend does (one write per
+            // run) instead of one bounds-checked cell at a time.
+            let has_wide = {
+                let target = &self.buffer.content[base..base + len];
+                source.iter().any(|c| c.is_wide() || c.skip)
+                    || target.iter().any(|c| c.is_wide() || c.skip)
+            };
+            if has_wide {
+                for (index, cell) in source.iter().enumerate() {
+                    let x = run.start + u16::try_from(index).unwrap_or(u16::MAX);
+                    // Emulate real terminal behavior: overwriting either half of
+                    // a wide glyph clears the whole pair, even when the neighbor
+                    // cell is not part of this diff batch.
+                    if let Some(previous) = self.buffer.get(x, run.row) {
+                        if previous.is_wide() {
+                            self.buffer
+                                .clear_with_pair_repair(x.saturating_add(1), run.row);
+                        } else if previous.skip
+                            && let Some(previous) = x.checked_sub(1)
+                        {
+                            self.buffer.clear_with_pair_repair(previous, run.row);
+                        }
+                    }
+                    if let Some(target) = self.buffer.get_mut(x, run.row) {
+                        *target = cell.clone();
                     }
                 }
-                if let Some(target) = self.buffer.get_mut(x, run.row) {
-                    *target = cell.clone();
-                }
+            } else {
+                self.buffer.content[base..base + len].clone_from_slice(source);
             }
             if run.elide_rest {
                 // Emulate EL: everything after the written cells blanks out.
-                let width = self.buffer.area.width;
-                let from = run.start + u16::try_from(run.cells.len()).unwrap_or(width);
-                for x in from..width {
-                    if let Some(target) = self.buffer.get_mut(x, run.row) {
-                        target.reset();
-                    }
-                }
+                // `Cell::reset` is exactly `Cell::empty()`, so a fill is
+                // identical to the per-cell loop.
+                let row_end = row * width + width;
+                self.buffer.content[base + len..row_end].fill(Cell::empty());
             }
         }
         Ok(())
