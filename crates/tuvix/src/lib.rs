@@ -284,7 +284,10 @@ pub use tuvix_widgets::{
 
 pub mod runtime;
 
-pub use runtime::{DefaultRunner, init, restore_global, try_init, try_restore_global};
+pub use runtime::{
+    DefaultRunner, init, init_persistent, restore_global, try_init, try_init_persistent,
+    try_restore_global,
+};
 #[cfg(unix)]
 pub use runtime::{TermionRunner, init_termion, try_init_termion};
 
